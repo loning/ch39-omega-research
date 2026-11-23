@@ -38,6 +38,16 @@ def main():
     assert arb('2.88958e-7') < dr < arb('2.88960e-7')
     assert arb('1.53481e-12') < ur < arb('1.53483e-12')
     assert arb('0.00030245858') < bottom - ur < bottom + ur < arb('0.00030245859')
+    cross_gram = acb_mat([[down[i]*down[j]*up_in_down[i,j] for j in range(3)]
+                          for i in range(3)])
+    trace = cross_gram.trace().real
+    moment = cross_gram[0,0].real / trace
+    derivative = 6*sum(abs(cross_gram[j,0])**2/(down[j]**2 - down[0]**2)
+                       for j in (1,2))/(16*arb.pi()**2*trace)
+    assert arb('7.17391e-11') < moment < arb('7.17392e-11')
+    assert arb('2.00603e-12') < derivative < arb('2.00604e-12')
+    print('Light right-line invariant expectation', moment.str(16),
+          'increase per unit log scale', derivative.str(16))
     print('Commutator determinant modulus', cp.str(16))
     print('Per unit log scale: d singlet', dr.str(16), 'u singlet', ur.str(16),
           'left bottom', bottom.str(16))
