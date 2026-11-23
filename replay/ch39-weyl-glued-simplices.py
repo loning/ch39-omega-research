@@ -113,10 +113,10 @@ def index_sum(dim, size, boundary, terms):
 
 
 @cache
-def contract(dim, types):
+def contract(dim, types, probe=(1, 2), faces=FACES):
     stars = defaultdict(list)
     size = 0
-    for face, typ in zip(FACES, types, strict=True):
+    for face, typ in zip(faces, types, strict=True):
         if typ:
             word = face if typ > 0 else tuple((b, a) for a, b in reversed(face))
             for j, (a, b) in enumerate(word):
@@ -128,7 +128,9 @@ def contract(dim, types):
             size += len(word)
     choices = []
     denominator = 1
-    for edge in LINKS[1:]:
+    for edge in LINKS:
+        if edge == probe:
+            continue
         terms, scale = haar(dim, stars[edge])
         if not terms:
             return 0, 0
@@ -136,7 +138,7 @@ def contract(dim, types):
         denominator *= scale
     mass = moment = 0
     for terms in product(*choices):
-        z, h = index_sum(dim, size, stars[LINKS[0]], terms)
+        z, h = index_sum(dim, size, stars[probe], terms)
         sign = prod(k for k, _, _ in terms)
         mass += sign*z
         moment += sign*h
@@ -194,6 +196,24 @@ def coefficients():
     return rows
 
 
+def homogeneous_polynomials(rows, dimension, units):
+    import sympy as sp
+    t = sp.Symbol('t')
+    polys = []
+    for row, scale in zip(rows, units, strict=True):
+        totals = [0]*(dimension+1)
+        for i, value in enumerate(row):
+            totals[i.bit_count()] += value
+        polys.append(sp.Poly.from_list(list(reversed(totals)), t, domain='QQ')/sp.Integer(scale))
+    return [sp.Poly(p, t, domain='QQ') for p in polys]
+
+
+def positive_on_interval(poly):
+    deg = poly.degree()
+    coeff = [sum(poly.nth(i)*comb(deg-i, j-i)/12**i for i in range(j+1)) for j in range(deg+1)]
+    return min(coeff) >= 0 and max(coeff) > 0
+
+
 def verify(rows):
     import sympy as sp
     single = base['face_coefficients']()
@@ -219,22 +239,14 @@ def verify(rows):
         assert v[active] > 0 and u[active] == ratio*v[active]
         assert all(not (u[i] or v[i]) for i in range(len(v)) if i != active and i & active == i)
     t = sp.Symbol('t')
-    homogeneous = []
-    for j, row in enumerate(rows):
-        totals = [0]*16
-        for i, v0 in enumerate(row):
-            totals[i.bit_count()] += v0
-        poly = sp.Poly.from_list(list(reversed(totals)), t, domain='QQ')*(sp.Rational(1, SCALE**2*(60 if j else 1)))
-        homogeneous.append(poly)
+    homogeneous = homogeneous_polynomials(rows, 15, [SCALE**2]+[60*SCALE**2]*3)
     z, *h = homogeneous
     assert z.nth(3) == 14 and z.nth(4) == 18
     assert tuple(p.nth(3) for p in h) == (sp.Rational(71, 15), 1, sp.Rational(5, 6))
     kt = [4*z+sp.Poly(1+30*t,t)*p.exquo(sp.Poly(t,t)) for p in h]
     top, bottom = kt[0], kt[2]
     derivative = top.diff()*bottom-bottom.diff()*top
-    deg = derivative.degree()
-    coeff = [sum(derivative.nth(i)*comb(deg-i,j-i)/12**i for i in range(j+1)) for j in range(deg+1)]
-    assert min(coeff) >= 0 and max(coeff) > 0
+    assert positive_on_interval(derivative)
     lo, hi = sp.Rational('0.076393202250020'), sp.Rational('0.076393202250022')
     assert (3-10*hi)**2 < 5 < (3-10*lo)**2
     assert sp.Rational('1.01904359786172') < top.eval(lo)/bottom.eval(lo)
