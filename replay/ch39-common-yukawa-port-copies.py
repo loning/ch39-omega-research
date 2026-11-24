@@ -21,7 +21,11 @@ def orbit_weights(copies, coordinates=None):
     if coordinates is None:
         coordinates = model["match_coord"]
         assert sum(v*v for v in coordinates) == 5**21
-    powers = [[v**(2*k) for k in range(copies+1)] for v in coordinates]
+    return orbit_weights_from_ports(copies, [v*v for v in coordinates])
+
+
+def orbit_weights_from_ports(copies, ports):
+    powers = [[v**k for k in range(copies+1)] for v in ports]
     fac = [factorial(k) for k in range(copies+1)]
     weights = defaultdict(int)
     for i in range(copies+1):
@@ -31,7 +35,7 @@ def orbit_weights(copies, coordinates=None):
                 mult = fac[copies]//(fac[scalar]*fac[i]*fac[j]*fac[k])
                 key = tuple(sorted((i,j,k),reverse=True))
                 weights[key] += mult*powers[0][scalar]*powers[1][i]*powers[2][j]*powers[3][k]
-    assert sum(weights.values()) == sum(v*v for v in coordinates)**copies
+    assert sum(weights.values()) == sum(ports)**copies
     return weights
 
 
