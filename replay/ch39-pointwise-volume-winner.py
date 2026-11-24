@@ -2,19 +2,25 @@
 from pathlib import Path
 from runpy import run_path
 
-from flint import arb, ctx
+from flint import acb, arb, ctx
 
 volume = run_path(str(Path(__file__).with_name("ch39-volume-contenders.py")))
 
 
-def verify():
+def verify(weight_modulus_error=0):
     ctx.prec = 112
     tolerance = arb(2)**-21
     targets, _ = volume["zero_targets"](tolerance)
     x_low, x_high, logs = volume["input_bounds"]()
     top_low, top_high = logs[2].lower(), logs[2].upper()
     winner = 11737
-    relative_gap = volume["q"](".0003")
+    relative_gap = volume["q"](".0002" if weight_modulus_error else ".0003")
+    assert min(targets) == 10815
+    if weight_modulus_error:
+        assert acb.zeta_zero(min(targets)).imag > 10000
+        shifted = arb(0,weight_modulus_error/10000**2)
+        targets = {n:(target,weight+shifted) for n,(target,weight) in targets.items()}
+        assert all(weight > 0 for _,weight in targets.values())
     nodes = 0
     for half in range(2):
         a = top_low + (top_high-top_low)*half/2
