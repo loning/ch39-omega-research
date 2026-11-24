@@ -20,7 +20,7 @@ def target(index, time):
     return factor * (-2 * time).exp() / (height**2 + q(fixed["OFFSET"]))
 
 
-def evolve(inverse, log_y, duration, steps):
+def evolve(inverse, log_y, duration, steps, *, diagonal_quarks=False):
     step = duration / steps
     gauge_pad, yukawa_pad = abs(step) / 7, abs(step) / 3
     b, d, c = (running[k] for k in ("B", "D", "C"))
@@ -46,7 +46,8 @@ def evolve(inverse, log_y, duration, steps):
             gauge_term = sum(a*g for a, g in zip(row, gauge))
             other = arb(0).union(traces[1-family]) if family < 2 else arb(0)
             for flavor in range(3):
-                dy.append((3*(squares[3*family+flavor]-other) + 2*(total-gauge_term)) / loop)
+                mixing = squares[3*(1-family)+flavor] if diagonal_quarks and family < 2 else other
+                dy.append((3*(squares[3*family+flavor]-mixing) + 2*(total-gauge_term)) / loop)
         assert all(abs(step * x) < gauge_pad for x in dx)
         assert all(abs(step * y) < yukawa_pad for y in dy)
         projected += step * gauge_rate(one_loop[1] / ratios[1] - one_loop[2], b_diff, d_diff)
