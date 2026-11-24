@@ -68,11 +68,15 @@ def enclose_roots():
     return fine
 
 
-def oriented_coefficient(root):
+def rephased_matrix(root):
     right = (cis(root[0]), cis(root[1]), 1)
     rows = [[z*h for z,h in zip(row,right)] for row in v]
     left = [(sum(z*r for z,r in zip(row,p))/p[i]).conjugate() for i,row in enumerate(rows)]
-    w = [[l*z for z in row] for l,row in zip(left,rows)]
+    return [[l*z for z in row] for l,row in zip(left,rows)]
+
+
+def oriented_coefficient(root):
+    w = rephased_matrix(root)
     plane_trace = sum(w[i][i] for i in range(3)) - 1
     half_gap = (abs(plane_trace)/2).acos()
     skew = abs(w[0][2]-w[2][0])*arb(sum(z*z for z in p)).sqrt()/p[1]
