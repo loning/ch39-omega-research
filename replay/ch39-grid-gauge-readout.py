@@ -9,30 +9,11 @@ model, q, running = volume["gauge"], volume["q"], volume["running"]
 loop = model["loop"]
 
 
+rational = run_path(str(Path(__file__).with_name("ch39-rational-gauge-flow.py")))
+
+
 def taylor(initial, order):
-    # A polynomial vector field in u_i=g_i^2 and y_a=(Yukawa_a)^2.
-    coeff = [initial]
-    gauge_squares = []
-    rates = []
-    for k in range(order):
-        term = coeff[k]
-        u, y = term[:3], term[3:]
-        traces = [sum(y[i:i+3]) for i in (0,3,6)]
-        total = 3*(traces[0]+traces[1])+traces[2]
-        gauge_rates, matter_rates = [], []
-        for i in range(3):
-            corr = sum(b*x-d*t for b,d,x,t in zip(running["B"][i],running["D"][i],u,traces))
-            gauge_rates.append(2*((running["BETA"][i] if k == 0 else 0)+corr/loop)/loop)
-            gy = sum(c*x for c,x in zip(running["C"][i],u))
-            for a in range(3):
-                mix = y[3*(1-i)+a] if i < 2 else 0
-                matter_rates.append((3*(y[3*i+a]-mix)+2*(total-gy))/loop)
-        rates.append(gauge_rates+matter_rates)
-        gauge_squares.append([sum(coeff[j][i]*coeff[k-j][i] for j in range(k+1)) for i in range(3)])
-        next_g = [sum(gauge_squares[j][i]*rates[k-j][i] for j in range(k+1))/(k+1) for i in range(3)]
-        next_y = [sum(coeff[j][i]*rates[k-j][i] for j in range(k+1))/(k+1) for i in range(3,12)]
-        coeff.append(next_g+next_y)
-    return coeff
+    return rational["taylor"](initial, order, running, 1/loop)
 
 
 def advance(initial, step, degree):
