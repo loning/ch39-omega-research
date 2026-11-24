@@ -75,6 +75,9 @@ def verify():
             assert sign > 0
             hi = mid
     t = lo.union(hi)
+    shift_energy = clock["free_ground"](peak[1]-t)-clock["free_ground"](peak[1])
+    assert arb("8.63959e-8") < shift_energy < arb("8.63960e-8")
+    print("joint ground elevation above the uncoupled clock",shift_energy.str(11))
     effective, excitation, probability, means = trace(t,True)
     assert arb(".00098368575") < effective < arb(".00098368576")
     assert excitation < arb("2.213e-8") and probability > arb(".99994")
