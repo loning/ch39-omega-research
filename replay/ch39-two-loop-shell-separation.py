@@ -31,7 +31,7 @@ def hull_inputs(entries, factor):
     return [q(x)*q(1-factor).union(q(1+factor)) for x in entries.split()]
 
 
-def enclosure():
+def enclosure(observe=None):
     gauge = hull_inputs('.467453 .63811 1.0583', F(1, 1000))
     start = [1/g**2 for g in gauge]
     yukawa = hull_inputs('.00000615 .00311 .8616 .0000135 .000268 .01401 .0000028227 .00059465 .010101', F(1, 100))
@@ -53,6 +53,8 @@ def enclosure():
         tr = [sum(ys[i:i+3]) for i in (0, 3, 6)]
         total = 3*(tr[0]+tr[1])+tr[2]
         dx = [-2*sum(b*g-d*h for b, g, d, h in zip(br, gs, dr, tr))/LOOP**2 for br, dr in zip(B, D)]
+        if observe is not None:
+            observe(j, inverse, [v-2*b/LOOP for v, b in zip(dx, BETA)])
         dy = []
         for f, row in enumerate(C):
             other = arb(0).union(tr[1-f]) if f < 2 else arb(0)
