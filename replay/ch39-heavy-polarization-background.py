@@ -26,9 +26,9 @@ def charged_blocks():
         yield a(weight),[arb_mat(m) for m in forms],pos.shape[0]-rank
 
 
-def scalar_trace(r,blocks):
+def scalar_trace(r,blocks,sigma):
     q = r*r
-    lam,sigma = a("1/12"),a("1/256")
+    lam = a("1/12")
     ans = [arb(0)]*3
     for weight,(base,linear,quadratic),nullity in blocks:
         p = (base+r*linear+q*quadratic).charpoly()
@@ -50,6 +50,28 @@ def spin_weights(j):
     return a(scalar),a(vector)
 
 
+def heavy_moments(r,z,w,gamma,blocks,sigma):
+    trace,det = (3+r*r)*z+w,(2+r*r)*z*w
+    discr = (trace*trace-4*det).sqrt()
+    minus,plus = (trace-discr)/2,(trace+discr)/2
+    heavy = 3*z+w
+    d,h = [r*(a(k)*z).sqrt() for k in ("13/10","7/2")]
+    ell = ((gamma/624)**2+a("1/4")).sqrt()
+    D = d*acb(((ell+a("1/2"))/2).sqrt(),((ell-a("1/2"))/2).sqrt())
+    C,E = D+d,D-d
+    P,W = -h*D/d,-h*C/d
+    scalars = scalar_trace(r,blocks,sigma)
+    moments,ratios = [],[]
+    for j in (1,2,3):
+        fs,fv = spin_weights(j)
+        vector = 18*(minus**(-j)+plus**(-j)-heavy**(-j))
+        bosons = (fs*scalars[j-1]+fv*vector)/3
+        fermion = sum(s*abs(m)**(-2*j) for s,m in [(1,W),(-1,P),(1,E),(-1,D)])
+        moments.append(bosons+fermion)
+        ratios.append(abs(fermion/bosons))
+    return moments,ratios
+
+
 def verify():
     ctx.prec = 180
     blocks = list(charged_blocks())
@@ -58,25 +80,7 @@ def verify():
         if kind!="center":
             continue
         z,w = 1/state[0],1/state[1]
-        trace,det = (3+r*r)*z+w,(2+r*r)*z*w
-        discr = (trace*trace-4*det).sqrt()
-        minus,plus = (trace-discr)/2,(trace+discr)/2
-        heavy = 3*z+w
-        gamma = acb.zeta_zero(n).imag
-        d,h = [r*(a(k)*z).sqrt() for k in ("13/10","7/2")]
-        ell = ((gamma/624)**2+a("1/4")).sqrt()
-        D = d*acb(((ell+a("1/2"))/2).sqrt(),((ell-a("1/2"))/2).sqrt())
-        C,E = D+d,D-d
-        P,W = -h*D/d,-h*C/d
-        scalars = scalar_trace(r,blocks)
-        moments,ratios = [],[]
-        for j in (1,2,3):
-            fs,fv = spin_weights(j)
-            vector = 18*(minus**(-j)+plus**(-j)-heavy**(-j))
-            bosons = (fs*scalars[j-1]+fv*vector)/3
-            fermion = sum(s*abs(m)**(-2*j) for s,m in [(1,W),(-1,P),(1,E),(-1,D)])
-            moments.append(bosons+fermion)
-            ratios.append(abs(fermion/bosons))
+        moments,ratios = heavy_moments(r,z,w,acb.zeta_zero(n).imag,blocks,a("1/256"))
         assert a("2.74e-5")<ratios[0]<a("2.76e-5")
         assert a("1.46e-9")<ratios[1]<a("1.48e-9")
         assert a("4.42e-14")<ratios[2]<a("4.45e-14")
