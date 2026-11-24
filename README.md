@@ -215,6 +215,8 @@
 
 加入每代一个中性右手分量后，可写出即使希格斯为零也有定义的局域 Wilson–Yukawa 多项式。自由破缺背景只有一个轻动量锥，希格斯恒零时十六个角点全部恢复。[有限作用量与镜像谱](replay/Ω复算说明.md#希格斯为零时仍有定义的-wilsonyukawa-有限调节器) · [协变性与角点证书](replay/ch39-polynomial-wilson-yukawa.py)
 
+壳三重性允许的轻场重子数破坏算符最低为维数 15，同时保持 $B-L$ 时最低为 18。只含守恒双线性的四步 Wilson–Yukawa 模型有过强的连续重子数对称性，无法直接产生三代弱瞬子顶点。[最低维数与瞬子检验](replay/Ω复算说明.md#重子三重性允许的最小重子数破坏算符) · [Grassmann 证书](replay/ch39-baryon-triality-operator-floor.py)
+
 在 `replay/` 或复算包解压目录中运行各节给出的命令。部分整数证书只依赖 Python 标准库。使用 Arb 的证书需要 `python-flint`。例如，以下命令分别核验超荷相位构造与第九个时间节点的舒尔枢轴比较。
 
 ```sh
