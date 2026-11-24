@@ -112,9 +112,9 @@ def arithmetic_data():
     return divisor,coefficients
 
 
-def finite_readout(g):
+def dirichlet_terms(g):
     n=4096
-    divisor, coefficients = arithmetic_data()
+    divisor, _ = arithmetic_data()
     powers = [(ZERO,ZERO),(ONE,ZERO)]
     for k in range(2,n+1):
         p=divisor[k]
@@ -124,7 +124,12 @@ def finite_readout(g):
             powers.append((a*factor,b*factor))
         else:
             powers.append(times(powers[p],powers[k//p]))
-    # powers[N] times the Euler--Maclaurin coefficient.
+    return powers
+
+
+def tail_coefficient(g):
+    n = 4096
+    _, coefficients = arithmetic_data()
     h = ONE.scale(1,2)
     inv = (g.square()+h.square()).reciprocal()
     tail = [h-(h*inv).scale(n), -(g*inv).scale(n)]
@@ -135,7 +140,13 @@ def finite_readout(g):
         if k < len(coefficients):
             for shift in (2*k-1,2*k):
                 rising=times(rising,((h+integer(shift)).scale(1,n),g.scale(1,n)))
-    tail = times(powers[n],tail)
+    return tail
+
+
+def finite_readout(g):
+    powers = dirichlet_terms(g)
+    n = len(powers)-1
+    tail = times(powers[n],tail_coefficient(g))
     value = [sum((v[j] for v in powers[1:n]),tail[j]) for j in (0,1)]
     norm = (value[0].square()+value[1].square()).sqrt()
     # Re(2^(1/2+i g)) from the same register's n=2 term.
