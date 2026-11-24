@@ -26,8 +26,9 @@ def scalar_flow():
             "B":[[x+d for x,d in zip(row,extra,strict=True)] for row,extra in zip(baseline["B"],change,strict=True)]}
 
 
-def verify_ground(values, intervals, trial_index, scale, allowance, spread_rate, *, logarithm=None):
-    lower = upper = [v*v for v in values]
+def verify_ground(values, intervals, trial_index, scale, allowance, spread_rate, *, logarithm=None, upper_values=None):
+    lower = [v*v for v in values]
+    upper = [v*v for v in (values if upper_values is None else upper_values)]
     exact_target = comp["model"]["target"]
     target = exact_target(11431,scale)
     offsets = [arb(0)]*3
