@@ -12,6 +12,10 @@ shell = run_path(str(Path(__file__).with_name("ch39-shell-selected-short-words.p
 short, events, q = (shell[k] for k in ("short", "events", "q"))
 
 
+chord_words = ((-527319, 246668, 336224, 557658), (-526967, 246408, 335994, 558244),
+               (527281, 246672, 336138, 557744), (-527151, 246378, 336544, 557752))
+
+
 def chord_histogram():
     local = shell["local"]
     sites, _ = local["lifted_sites"]()
@@ -79,6 +83,31 @@ def batch_readout(tables, counts):
     return [Fraction(mass(name), reference) for name in events["names"]]
 
 
+def source_tests(mass, tables, counts, ref, ref_y, logs, constraints):
+    dx = [arb(mass[0])/v-q(ref[0]/p) for v, p in zip(mass[1:], ref[1:], strict=True)]
+    tests = [(center+sum(a*x for a, x in zip(row[:3], dx, strict=True)), row[3:], margin)
+             for row, center, margin in constraints]
+
+    def violates(ys):
+        dy = [y-r for y, r in zip(ys, ref_y, strict=True)]
+        return any(abs(offset+sum(a*x for a, x in zip(row, dy, strict=True))) > margin
+                   for offset, row, margin in tests)
+
+    if violates(logs):
+        return ("whole box", "whole box")
+    laws = (short["table_readout"](mass), batch_readout(tables, counts))
+    result = []
+    for ys in laws:
+        if any(not events["low"][k] <= v <= events["high"][k]
+               for k, v in zip(events["names"], ys, strict=True)):
+            result.append("Yukawa")
+        elif violates([q(v).log() for v in ys]):
+            result.append("gauge")
+        else:
+            result.append("unresolved")
+    return tuple(result)
+
+
 def exclude_three(ports, histogram):
     ref, ref_y, logs, constraints, _, _ = shell["scale_constraints"](q("26.81672869387187"))
     bounds = shell["affine_port_bounds"](ports, ref, ref_y, logs, constraints)
@@ -87,26 +116,11 @@ def exclude_three(ports, histogram):
     excluded = Counter()
     for ids, counts in three_word_candidates(bounds, histogram):
         mass = weighted_ports([ports[i] for i in ids], counts)
-        dx = [arb(mass[0])/v-q(ref[0]/p) for v, p in zip(mass[1:], ref[1:], strict=True)]
-        tests = [(center+sum(a*x for a, x in zip(row[:3], dx, strict=True)), row[3:], margin)
-                 for row, center, margin in constraints]
-
-        def violates(ys):
-            dy = [y-r for y, r in zip(ys, ref_y, strict=True)]
-            return any(abs(offset+sum(a*x for a, x in zip(row, dy, strict=True))) > margin
-                       for offset, row, margin in tests)
-
-        if violates(logs):
+        outcome = source_tests(mass, [tables[i] for i in ids], counts, ref, ref_y, logs, constraints)
+        if outcome == ("whole box", "whole box"):
             excluded["whole box"] += 1
-            continue
-        laws = (short["table_readout"](mass), batch_readout([tables[i] for i in ids], counts))
-        for name, ys in zip(("redraw", "batch"), laws, strict=True):
-            if any(not events["low"][k] <= v <= events["high"][k]
-                   for k, v in zip(events["names"], ys, strict=True)):
-                excluded[name, "Yukawa"] += 1
-            else:
-                assert violates([q(v).log() for v in ys]), (name, ids, counts)
-                excluded[name, "gauge"] += 1
+        else:
+            excluded.update(zip(("redraw", "batch"), outcome, strict=True))
     assert excluded == {"whole box": 1438, ("redraw", "Yukawa"): 26, ("redraw", "gauge"): 73,
                         ("batch", "Yukawa"): 19, ("batch", "gauge"): 80}
     print("No continuous two-word mixture; all chord assignments to three words excluded.")
@@ -148,9 +162,7 @@ def verify():
     counts = [sum(n for d, n in histogram.items() if sum(d > u for u in cuts) == k)
               for k in range(4)]
     assert counts == [169, 312, 138, 6]
-    selected = ((-527319, 246668, 336224, 557658), (-526967, 246408, 335994, 558244),
-                (527281, 246672, 336138, 557744), (-527151, 246378, 336544, 557752))
-    rows = [ports[library.index((v, 17))] for v in selected]
+    rows = [ports[library.index((v, 17))] for v in chord_words]
     mass = weighted_ports(rows, counts)
     state = short["common_state"](mass)
     batch = batch_readout([batch_masses(v) for v in rows], counts)
