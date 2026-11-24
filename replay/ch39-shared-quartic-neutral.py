@@ -41,13 +41,15 @@ def pole_resolvent(vertices,lengths,tree_count):
                             for j in range(r)] for i in range(r)])
         assert positive.det()>0
     top,bottom=minor.charpoly(),lap.charpoly()
-    def green(energy,unit):
+    def green(energy,unit,derivative=False):
         t=energy/unit
+        if derivative:
+            return (top(t)*bottom.derivative()(t)-top.derivative()(t)*bottom(t))/(unit*bottom(t))**2
         return -top(t)/(unit*bottom(t))
     return green
 
 
-def verify():
+def parameters():
     ctx.prec=192
     data=run_path(str(root/"ch39-published-gauge-inputs.py"))
     log_q=data["q"]("26.81725683017028")
@@ -82,8 +84,15 @@ def verify():
     right=[p for p in points if orbit(p) in (middle,next_to,inner,pole)]+[pole]
     gc=pole_resolvent(colour,(32,152,72,56),243)
     gr=pole_resolvent(right,(56,12,68),12)
+    def active(energy,derivative=False):
+        return g*g*(3*gc(energy,unit,derivative)/8+gr(energy,unit,derivative)/4)
+    return g,u,w,m3,h,active
+
+
+def verify():
+    g,u,w,m3,h,active=parameters()
     def limiting(energy):
-        return (1+2*w*w*(3*g*g/8*gc(energy,unit)+g*g/4*gr(energy,unit)+2/(9*u*u)))
+        return 1+2*w*w*(active(energy)+2/(9*u*u))
     bound=bisect(limiting,".0001",".003").sqrt()
     assert bound<m3
     print("lambda/g^2", (h*h).str(12),"singlet vacuum / Q",u.str(12),
