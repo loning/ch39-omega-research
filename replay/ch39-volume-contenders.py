@@ -45,7 +45,7 @@ class FlowBounds:
     initial_offsets: list
 
 
-def variations(low, logs):
+def variations(low, logs, *, refinements=0):
     """Integrate the full variational equation and enclose its first three rows on the energy band."""
     tangent = arb_mat([[int(i == j) for j in range(12)] for i in range(12)])
     block, rates = None, None
@@ -61,6 +61,8 @@ def variations(low, logs):
         change = step*norm*(step*norm).exp()
         pad = arb_mat([[arb(0,change*v) for v in col]]*12)
         derivative = field*(tangent + pad)
+        for _ in range(refinements):
+            derivative = field*(tangent + arb(0).union(step)*derivative)
         if elapsed+step >= anchor-radius:
             slab = tangent + arb(0).union(step)*derivative
             rows = [[slab[i,j] for j in range(12)] for i in range(3)]
@@ -135,18 +137,19 @@ def widths(target, data, top, tolerance=0, gauge_prior=None):
         common = target*(-2*time).exp()
         speeds = [2*common + v/r for v,r in zip(data.rates,ratios)]
         assert all(speed > 0 for speed in speeds)
+        if gauge_prior is None:
+            return sum(speeds)/data.determinant, 1/data.determinant
         factor = 1/data.determinant
-        if gauge_prior is not None:
-            initial = []
-            for i, box in enumerate(data.low_box):
-                x = (data.initial_offsets[i] + data.target_ratios[i]*common
-                     - data.transformed_rates[i]*time - data.top_sensitivity[i]*top
-                     + arb(0,tolerance*data.residual_norms[i]))
-                if not box.overlaps(x):
-                    return None
-                initial.append(box.intersection(x))
-            factor *= gauge_prior(initial)
-            assert factor > 0
+        initial = []
+        for i, box in enumerate(data.low_box):
+            x = (data.initial_offsets[i] + data.target_ratios[i]*common
+                 - data.transformed_rates[i]*time - data.top_sensitivity[i]*top
+                 + arb(0,tolerance*data.residual_norms[i]))
+            if not box.overlaps(x):
+                return None
+            initial.append(box.intersection(x))
+        factor *= gauge_prior(initial)
+        assert factor > 0
         return (sum(speeds)*factor, factor)
 
     def integral(left, right, pieces, lower):
