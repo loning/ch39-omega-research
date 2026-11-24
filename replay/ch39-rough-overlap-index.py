@@ -20,9 +20,9 @@ def tensor(a, b):
                     for i in range(a.nrows()) for k in range(b.nrows())])
 
 
-def field():
+def field(rows=ROWS, exponents=POWERS):
     values = []
-    for permutation, powers in zip(ROWS, POWERS):
+    for permutation, powers in zip(rows, exponents):
         u = acb_mat(5, 5)
         for i, (j, phase) in enumerate(zip(permutation, powers)):
             u[i, j] = acb(0, 1)**phase
@@ -60,18 +60,22 @@ def positive_roots(poly, cut):
     return sum((a > 0) != (b > 0) for a, b in zip(coeffs, coeffs[1:]))
 
 
-def fiber_indices(values):
+def fibers(values):
     zero, forward = stencil(values)
-    dim = zero.nrows()
     c = (arb(5).sqrt()-1)/4
     zeta = acb(c, (1-c*c).sqrt())
     phased = [[matrix*zeta**k for k in range(5)] for matrix in forward]
-    stats = Counter()
-    cut = arb(1)/2000
     for p in product(range(5), repeat=4):
         power = (*p, -sum(p) % 5)
         f = sum((phased[i][power[i]] for i in range(1, 5)), phased[0][p[0]])
-        hermitian = zero+f+adjoint(f)
+        yield zero+f+adjoint(f)
+
+
+def fiber_indices(values):
+    stats = Counter()
+    cut = arb(1)/2000
+    for hermitian in fibers(values):
+        dim = hermitian.nrows()
         poly = arb_poly([x.real for x in hermitian.charpoly().coeffs()])
         above = positive_roots(poly, cut)
         assert above == positive_roots(poly, -cut)
