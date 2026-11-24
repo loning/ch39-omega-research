@@ -23,15 +23,13 @@ def generator(height):
     return coupled
 
 
-def pulse_records(coupled):
+def port_outputs(coupled, length, *, impulse=False):
     matrix = np.array(coupled.tolist(), dtype=complex)
     cayley = np.linalg.solve(identity + 1j*matrix, identity - 1j*matrix)
     state = np.zeros((40, 2), dtype=complex)
     accumulated_error = arb(0)
-    amplitudes = [acb(0), acb(0)]
-    forward_intensity = arb(0)
-    for length in range(1, 9):
-        state[38:] = np.eye(2)
+    for tick in range(length):
+        state[38:] = np.eye(2) if tick==0 or not impulse else 0
         before = acb_mat(state.tolist())
         state = cayley @ state
         after = acb_mat(state.tolist())
@@ -40,7 +38,13 @@ def pulse_records(coupled):
         accumulated_error += model["frobenius"](residual)
         radius = arb(0, accumulated_error.upper())
         box = acb(radius, radius)
-        forward, reverse = after[39, 0]+box, after[38, 1]+box
+        yield after[39, 0]+box, after[38, 1]+box
+
+
+def pulse_records(coupled):
+    amplitudes = [acb(0), acb(0)]
+    forward_intensity = arb(0)
+    for length,(forward,reverse) in enumerate(port_outputs(coupled,8),1):
         amplitudes[0] += forward
         amplitudes[1] += reverse
         forward_intensity += abs(forward)**2

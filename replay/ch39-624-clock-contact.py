@@ -11,19 +11,24 @@ clock, pulses, flavor = (mixture[k] for k in ("clock","pulses","flavor"))
 gauge = run_path(str(root/"ch39-schur-winner-gauge-yukawa.py"))
 
 
-def clock_windows(lengths):
+def candidate_sources():
     ctx.prec = 192
     run_path(str(root/"ch39-intrinsic-shell-comparisons.py"))["verify"]()
     coeff = [arb(n)/2048 for n in flavor["codes"]]
     offset = gauge["shortest"]["q"](gauge["shortest"]["model"]["fixed"]["OFFSET"])
-    windows = {length: [] for length in lengths}
     for n, z in enumerate(acb.zeta_zeros(10815, 1278),10815):
         height = z.imag
-        stream = pulses["pulse_records"](pulses["generator"](height))
         response = flavor["native"]["plane_response"](height)
         obs = mixture["direct_observables"](flavor["mixing"](response,coeff))
         obs += [1/(height**2+offset)]
         weight = 1/(arb(1)/4+height**2)
+        yield n,pulses["generator"](height),weight,obs
+
+
+def clock_windows(lengths):
+    windows = {length: [] for length in lengths}
+    for n,coupled,weight,obs in candidate_sources():
+        stream = pulses["pulse_records"](coupled)
         for length,record in enumerate(islice(stream,max(lengths)),1):
             if length in windows:
                 windows[length].append((n,record[0],weight,obs))
