@@ -10,7 +10,7 @@ db = list(map(q, (F(4,15),F(4,3),F(2,3))))
 dB = sm["matrix"](["7/75 3/5 4/15", "1/5 49/3 4", "1/30 3/2 38/3"])
 
 
-def crossing(low, high, subdivisions=256):
+def threshold_crossing(events, subdivisions=256):
     start = [1/q(v)**2 for v in (".467453",".63811","1.0583")]
     yuk = sm["hull_inputs"](".00000615 .00311 .8616 .0000135 .000268 .01401 .0000028227 .00059465 .010101",F(1,100))
     y = [2*v.log() for v in yuk]
@@ -21,17 +21,18 @@ def crossing(low, high, subdivisions=256):
         t = F(j,subdivisions)
         t1 = t+F(1,subdivisions)
         time = q(t).union(q(t1))
-        opened = q(max(0,t-high)).union(q(max(0,t1-low)))
-        active = q(int(t >= high)).union(q(int(t1 > low)))
-        inv = [s+x+arb(0,".0001")-2*(b*time+c*opened)/loop
-               for s,x,b,c in zip(start,correction,sm["BETA"],db)]
+        durations = [q(max(0,t-high)).union(q(max(0,t1-low))) for low,high,_,_ in events]
+        active = [q(int(t >= high)).union(q(int(t1 > low))) for low,high,_,_ in events]
+        inv = [start[i]+correction[i]+arb(0,".0001")
+               -2*(sm["BETA"][i]*time+sum(u*event[2][i] for u,event in zip(durations,events)))/loop
+               for i in range(3)]
         assert all(a > q("1/2") for a in inv)
         gs = [1/a for a in inv]
         ys = [(v+arb(0,".004")).exp() for v in y]
         tr = [sum(ys[i:i+3]) for i in (0,3,6)]
-        dx = [-2*(sum((sm["B"][i][k]+active*dB[i][k])*gs[k] for k in range(3))
+        dx = [-2*(sum((sm["B"][i][k]+sum(u*event[3][i][k] for u,event in zip(active,events)))*gs[k] for k in range(3))
                  -sum(sm["D"][i][k]*tr[k] for k in range(3)))/loop**2 for i in range(3)]
-        slope = [dx[i]-2*(sm["BETA"][i]+active*db[i])/loop for i in range(3)]
+        slope = [dx[i]-2*(sm["BETA"][i]+sum(u*event[2][i] for u,event in zip(active,events)))/loop for i in range(3)]
         assert slope[0]-slope[2] < q("-.10")
         dy = []
         for f,row in enumerate(sm["C"]):
@@ -52,6 +53,10 @@ def crossing(low, high, subdivisions=256):
         y = [x+step*v for x,v in zip(y,dy)]
     assert answer is not None
     return answer
+
+
+def crossing(low, high, subdivisions=256):
+    return threshold_crossing([(low,high,db,dB)], subdivisions)
 
 
 def verify():
