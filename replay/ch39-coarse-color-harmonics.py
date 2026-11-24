@@ -11,22 +11,24 @@ geo = run_path(str(ROOT/"ch39-regge-gauge-scale.py"))
 q = geo["q"]
 
 
-def harmonics(height, power, degree):
+def harmonics(height, power, degree, count=2):
     amplitude = 16/(height**2+q("1/4")+q("452/15"))
     b = amplitude/(1-2*amplitude)
     # Positive coefficients of the powers of 1+cos(phi).
     term = q(1)
-    sums = [q(1), q(0), q(0)]
+    sums = [q(1)]+[q(0) for _ in range(count)]
     for k in range(1, degree+1):
         term *= (power-k+1)*b*(2*k-1)/(k*k)
         sums[0] += term
-        sums[1] += term*k/(k+1)
-        sums[2] += term*(k*(k-1))/((k+1)*(k+2))
+        harmonic = term
+        for j in range(1, min(k, count)+1):
+            harmonic = harmonic*(k-j+1)/(k+j)
+            sums[j] += harmonic
     alpha = 2*power*b
     err = alpha.exp()*alpha**(degree+1)/factorial(degree+1)
     assert err < q("1e-15") and power > degree+1
     integrals = [v+arb(0, err) for v in sums]
-    return integrals[1]/integrals[0], integrals[2]/integrals[0]
+    return tuple(v/integrals[0] for v in integrals[1:])
 
 
 def verify():
