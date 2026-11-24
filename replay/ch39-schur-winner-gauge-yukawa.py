@@ -14,7 +14,7 @@ word = ("0404242552511431313024220521442030212131342034420352511443530433"
         "0522055220241342402535111240550351421314034155224000404253400213")
 
 
-def gauge_match(sequence, label, log_scale, discarded=None):
+def rotor_inputs(sequence, discarded=None):
     ctx.prec = 144
     letters = list(map(int, sequence))
     assert len(letters) == 128 and all((a^1) != b for a,b in zip(letters,letters[1:]))
@@ -38,10 +38,19 @@ def gauge_match(sequence, label, log_scale, discarded=None):
     ys = [Fraction(masses[n],masses["ref"]) for n in events["names"]]
     for n,z in zip(events["names"],ys):
         assert events["low"][n] < z < events["high"][n]
-    state = [(arb(v)/coords[0])**2 for v in coords[1:]] + [shortest["q"](v) for v in ys]
-    time = arb(log_scale)
+    return [(arb(v)/coords[0])**2 for v in coords[1:]] + [shortest["q"](v) for v in ys]
+
+
+def gauge_state(sequence, time, discarded=None):
+    state = rotor_inputs(sequence, discarded)
     for _ in range(128):
         state = shortest["reference"]["advance"](state,time/128,14)
+    return state
+
+
+def gauge_match(sequence, label, log_scale, discarded=None):
+    time = arb(log_scale)
+    state = gauge_state(sequence,time,discarded)
     target = shortest["model"]["target"]
     values = [1/(r*u) for r,u in zip(shortest["ratios"],state)]
     deltas = [a+b for a,b in events["mixing"]["displacement"](27)]
