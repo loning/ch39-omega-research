@@ -8,8 +8,9 @@ comp = run_path(str(Path(__file__).with_name("ch39-unrestricted-top-match.py")))
 model, q, ratios = comp["model"], comp["q"], comp["ratios"]
 centers = [*model["centers"],*model["yukawa_centers"]]
 # Antusch, Hinze & Saad, arXiv:2510.01312v2, Table 2 (PDG 2024).
-widths = list(map(q, (".000027",".00003",".0030",".00000014",".00005",".0043",
-                     ".0000002",".000003",".00009",".0000000006",".00000013",".000002")))
+width_strings = (".000027",".00003",".0030",".00000014",".00005",".0043",
+                     ".0000002",".000003",".00009",".0000000006",".00000013",".000002")
+widths = list(map(q, width_strings))
 anchor = comp["anchor"]
 
 

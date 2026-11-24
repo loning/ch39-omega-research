@@ -14,11 +14,11 @@ orbits = ((36,1,1), (31,2,0), (13,5,2), (14,12,12), (29,7,2),
           (9,2,0), (37,1,0), (12,12,11), (15,12,7))
 
 
-def reference_candidates(weights):
+def reference_candidates(weights, low_bounds=events["low"], high_bounds=events["high"]):
     ordered = sorted(weights.values())
     viable = list(weights)
     for name in ("e", "u", "d", "s", "c", "mu", "b", "tau", "t"):
-        low, high = events["low"][name], events["high"][name]
+        low, high = low_bounds[name], high_bounds[name]
         rest = []
         for key in viable:
             mass = weights[key]

@@ -35,17 +35,17 @@ def ceil_rational(x):
     return -((-x.numerator)//x.denominator)
 
 
-def hits(depth):
+def hits(depth, bands=BANDS):
     norm = 5**depth
-    low = Q(norm)/(1+sum(b*b for a,b in BANDS))
-    high = Q(norm)/(1+sum(a*a for a,b in BANDS))
+    low = Q(norm)/(1+sum(b*b for a,b in bands))
+    high = Q(norm)/(1+sum(a*a for a,b in bands))
     start = isqrt(low.numerator//low.denominator)
     stop = isqrt(high.numerator//high.denominator)
     result = []
     for a in range(max(1,start),stop+1):
         if a%2 == 0 or a*a < low:
             continue
-        endpoints = [(ceil_rational(a*l),int(a*r)) for l,r in BANDS]
+        endpoints = [(ceil_rational(a*l),int(a*r)) for l,r in bands]
         (b0,b1),(c0,c1),(d0,d1) = endpoints
         for b in range(b0+b0%2,b1+1,2):
             for c in range(c0+c0%2,c1+1,2):
