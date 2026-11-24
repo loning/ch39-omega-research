@@ -20,7 +20,7 @@ SEEDS = {
 }
 
 
-def fixed_weights(target, counts, center):
+def fixed_weights(target, counts, center, refinements=0):
     n = rank["N"]
     x = q(rank["EPS"]/3)
     phase = acb((1-x*x)/(1+x*x),2*x/(1+x*x))
@@ -37,9 +37,14 @@ def fixed_weights(target, counts, center):
             residual.append([sum(weighted)-goal])
             jac.append([v*r*t/(u*b) for v,t,u,b in zip(weighted,roots,point,bases)])
         return arb_mat(residual), arb_mat(jac)
+    for _ in range(refinements):
+        res, jac = evaluate(center)
+        correction = jac.solve(res)
+        center = [(v-d).mid() for v,d in zip(center,correction.entries())]
     radius = q("1e-33")
     box = [v+arb(0,radius) for v in center]
-    assert q("1/2") < box[0] and box[-1] < 1 and all(a < b for a,b in zip(box,box[1:]))
+    assert 0 < box[0] and box[-1] < 1 and all(a < b for a,b in zip(box,box[1:]))
+    assert 1-box[0]**(q(1)/n) < 1-phase.real  # each non-idle probability is below one
     res, mid = evaluate(center)
     _, whole = evaluate(box)
     inv = arb_mat(size,size,[v.mid() for v in mid.inv().entries()])
