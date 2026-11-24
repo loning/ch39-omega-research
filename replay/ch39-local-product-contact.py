@@ -9,12 +9,18 @@ contact = run_path(str(Path(__file__).with_name("ch39-624-clock-contact.py")))
 geometry = run_path(str(Path(__file__).with_name("ch39-intrinsic-shell-comparisons.py")))
 
 
-def lifted_laplacian():
+def lifted_sites():
     shell = [p for p in product(range(30),repeat=3) if sum(v*v for v in p)==867]
     pole = (17,17,17)
     distance = geometry["squared"]
     sites = [p for p in shell for _ in range(3 if distance(p,pole)==68 else 1)]
     assert len(sites)==25
+    return sites, pole
+
+
+def lifted_laplacian():
+    sites, pole = lifted_sites()
+    distance = geometry["squared"]
     def laplacian(cutoff):
         rows = [[-int(0<distance(p,q)<=cutoff) for q in sites] for p in sites]
         for i,row in enumerate(rows):
