@@ -35,7 +35,7 @@ def upper_certificate(state,targets,N,fixed=()):
     x = q(F(1,2**27))
     phase = acb((1-x*x)/(1+x*x),2*x/(1+x*x))
     d = 1-phase.real
-    ratios = [(1-(phase**j).real)/d for j in range(6)]
+    ratios = [(1-(phase**j).real)/d for j in range(max(6, len(targets)+int(bool(fixed))))]
     def values(j,v):
         atom = v**q(F(1,N))
         base = 1-ratios[j]*(1-atom)
@@ -55,6 +55,7 @@ def upper_certificate(state,targets,N,fixed=()):
     slope = arb_mat([[int(i==j) for j in range(size)] for i in range(size)])-inv*whole
     defect = inv*res
     assert all(abs(defect[i,0])+rad*sum(abs(slope[i,j]) for j in range(size)) < rad for i in range(size))
+    return nodes
 
 
 def verify():
