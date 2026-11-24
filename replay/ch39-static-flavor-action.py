@@ -14,10 +14,11 @@ seeds = (("3.778043", "1.714406"), ("5.799087", "1.646460"),
          (".595113", "4.613742"), ("2.386175", "4.555629"))
 
 
-def equations(x, y):
+def equations(x, y, parameters=None):
+    constants, rows = (offsets, coeffs) if parameters is None else parameters
     harmonics = (cis(x-y), cis(x), cis(y))
     values, slopes = [], []
-    for a, row in zip(offsets, coeffs):
+    for a, row in zip(constants, rows):
         z, h, k = [coef*phase for coef, phase in zip(row, harmonics)]
         values.append([a+(z+h+k).real])
         slopes.append([-(z+h).imag, (z-k).imag])

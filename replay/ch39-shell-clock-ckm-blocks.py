@@ -28,9 +28,13 @@ axis_cos_sq = arb(dot(*axes)**2) / (dot(axes[0], axes[0])*dot(axes[1], axes[1]))
 
 
 def target_box(sine_halfwidth=sine_radius, phase_halfwidth=phase_radius):
-    s, t, u = (v + arb(0, sine_halfwidth.upper()) for v in centers[:3])
+    sines = [v + arb(0, sine_halfwidth.upper()) for v in centers[:3]]
+    return standard_matrix(*sines, centers[3] + arb(0, phase_halfwidth.upper()))
+
+
+def standard_matrix(s, t, u, phase):
     a, b, c = ((1-v*v).sqrt() for v in (s, t, u))
-    d = cis(centers[3] + arb(0, phase_halfwidth.upper()))
+    d = cis(phase)
     return ((a*c, s*c, u*d.conjugate()),
             (-s*b-a*t*u*d, a*b-s*t*u*d, t*c),
             (s*t-a*b*u*d, -a*t-s*b*u*d, b*c))

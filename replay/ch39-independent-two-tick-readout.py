@@ -109,6 +109,7 @@ def verify():
         assert all(abs(v-c)<r for v,c,r in zip(finite_values, shell["centers"], tolerances, strict=True))
         print("phase circle R^2", radius_squared.str(14), "variance bound", means[9].str(10))
         print("coherent flavor", *(v.str(11) for v in restored), "64-step diamond bound", diamond_bound.str(8))
+        return response
 
 
 if __name__ == "__main__":
