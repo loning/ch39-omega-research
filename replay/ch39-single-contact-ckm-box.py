@@ -83,10 +83,14 @@ def resolve_cell(args,normal):
     return count
 
 
-def verify(index):
+def exclusion_count(index, contacts, admissible=None):
     native = arc["native"]
     t = native["plane_response"](acb.zeta_zero(index).imag)
-    normals = [basis*(t*q-q*t)*basis.transpose() for q in arc["arc_projectors"]().values()]
+    normals = [basis*(t*q-q*t)*basis.transpose() for q in contacts]
+    return exclude_normals(normals,admissible)
+
+
+def exclude_normals(normals,admissible=None):
     v = shell["target_box"]()
     offsets, coeffs = shell["rephasing_equations"](v)
     pending = [(0,0,0,normals)]
@@ -102,15 +106,18 @@ def verify(index):
         rows = [[z*t for z,t in zip(row,(h,k,1))] for row in v]
         l = [(dot(row,p)/p[i]).conjugate() for i,row in enumerate(rows)]
         w = acb_mat([[z*li for z in row] for row,li in zip(rows,l)])
+        if admissible is not None and not admissible(w):
+            continue
         keep = [n for n in active if 0 in (n*w).trace()]
         if level == 10:
             for n in keep:
                 checks += resolve_cell([x,y,*parameters],n)
         elif keep:
             pending.extend((level+1,2*i+a,2*j+b,keep) for a in (0,1) for b in (0,1))
-    print(index,"all ten contacts excluded; centered checks",checks)
+    return checks
 
 
 if __name__ == "__main__":
     for index in (11431,11439,11737):
-        verify(index)
+        checks = exclusion_count(index,arc["arc_projectors"]().values())
+        print(index,"all ten contacts excluded; centered checks",checks)
