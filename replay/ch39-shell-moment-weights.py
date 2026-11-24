@@ -24,8 +24,10 @@ def fixed_weights(target, counts, center):
     n = rank["N"]
     x = q(rank["EPS"]/3)
     phase = acb((1-x*x)/(1+x*x),2*x/(1+x*x))
-    ratios = [(1-(phase**j).real)/(1-phase.real) for j in range(1,5)]
-    weights = [q(F(c,19)) for c in counts]
+    size = len(counts)
+    assert size == len(target) == len(center)
+    ratios = [(1-(phase**j).real)/(1-phase.real) for j in range(1,size+1)]
+    weights = [q(F(c,sum(counts))) for c in counts]
     def evaluate(point):
         roots = [v**(q(1)/n) for v in point]
         residual, jac = [], []
@@ -37,14 +39,14 @@ def fixed_weights(target, counts, center):
         return arb_mat(residual), arb_mat(jac)
     radius = q("1e-33")
     box = [v+arb(0,radius) for v in center]
-    assert q("1/2") < box[0] < box[1] < box[2] < box[3] < 1
+    assert q("1/2") < box[0] and box[-1] < 1 and all(a < b for a,b in zip(box,box[1:]))
     res, mid = evaluate(center)
     _, whole = evaluate(box)
-    inv = arb_mat(4,4,[v.mid() for v in mid.inv().entries()])
+    inv = arb_mat(size,size,[v.mid() for v in mid.inv().entries()])
     assert not inv.det().contains(0)
-    err = arb_mat([[int(i==j) for j in range(4)] for i in range(4)])-inv*whole
+    err = arb_mat([[int(i==j) for j in range(size)] for i in range(size)])-inv*whole
     defect = inv*res
-    assert all(abs(defect[i,0])+radius*sum(abs(err[i,j]) for j in range(4)) < radius for i in range(4))
+    assert all(abs(defect[i,0])+radius*sum(abs(err[i,j]) for j in range(size)) < radius for i in range(size))
 
 
 def atom_bounds(target, nodes):
