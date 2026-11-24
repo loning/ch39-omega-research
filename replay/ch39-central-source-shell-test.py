@@ -9,7 +9,7 @@ floating = leads["floating"]
 gauge = floating["gauge"]
 
 
-def verify():
+def central_landscape():
     speeds = floating["flow_bounds"]()
     shortest = gauge["shortest"]
     model = shortest["model"]
@@ -56,6 +56,11 @@ def verify():
             pending.extend(((lo,middle),(middle,hi)))
         return min(bounds).union(upper)
 
+    return minimum, initial, t0, mismatch
+
+
+def verify():
+    minimum, _, _, mismatch = central_landscape()
     pen = floating["penalty"]
     score = pen["competition"]["score"]
     free = pen["doublet"]["joint"]["contact"]["clock"]["free_ground"]
