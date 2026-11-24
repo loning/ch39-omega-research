@@ -13,6 +13,9 @@ short = run_path(str(root/"ch39-short-word-gauge-mixture.py"))
 local = run_path(str(root/"ch39-local-product-contact.py"))
 gauge, shortest, model, q = (short[k] for k in ("gauge","shortest","model","q"))
 events, words = short["events"],short["words"]
+selected = ((527001,246580,336568,557790),(-527151,246378,336544,557752),
+            (527281,246672,336138,557744),(-527051,246522,336154,558018),
+            (-526967,246408,335994,558244),(527281,246672,336138,557744))
 
 
 def radial_counts():
@@ -107,9 +110,6 @@ def verify():
             raise AssertionError(("unresolved single-shell assignment",ids))
     assert (len(survivors),rejected_by_table,excluded)==(3,2,1)
     print("one shell: all radial assignments excluded; refined",len(survivors),rejected_by_table,excluded)
-    selected = ((527001,246580,336568,557790),(-527151,246378,336544,557752),
-                (527281,246672,336138,557744),(-527051,246522,336154,558018),
-                (-526967,246408,335994,558244),(527281,246672,336138,557744))
     assert pair==[1,18,30,81,270,225] and all((v,17) in library for v in selected)
     mass = [sum(n*v[j]**2 for n,v in zip(pair,selected,strict=True)) for j in range(4)]
     trial = q("26.81668495751949")
