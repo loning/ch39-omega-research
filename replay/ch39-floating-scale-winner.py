@@ -20,7 +20,7 @@ def target(index, time):
     return factor * (-2 * time).exp() / (height**2 + q(fixed["OFFSET"]))
 
 
-def evolve(inverse, log_y, duration, steps, *, diagonal_quarks=False, observe=None):
+def evolve(inverse, log_y, duration, steps, *, diagonal_quarks=False, observe=None, observe_flavors=None):
     step = duration / steps
     gauge_pad, yukawa_pad = abs(step) / 7, abs(step) / 3
     b, d, c = (running[k] for k in ("B", "D", "C"))
@@ -37,6 +37,8 @@ def evolve(inverse, log_y, duration, steps, *, diagonal_quarks=False, observe=No
         traces = [sum(squares[j:j+3]) for j in (0, 3, 6)]
         if observe is not None:
             observe(step, gauge, traces)
+        if observe_flavors is not None:
+            observe_flavors(step, gauge, squares, traces)
         total = 3 * (traces[0] + traces[1]) + traces[2]
 
         def gauge_rate(linear, weights, sources):
