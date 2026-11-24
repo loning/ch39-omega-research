@@ -28,7 +28,7 @@ def terminal_modes(count):
     return common, contrast
 
 
-def verify():
+def verify(*, target_error=0):
     floating["verify"]()
     expected = [(fmpq(7,61),fmpq(427,1129)),(fmpq(28,209),fmpq(1708,2381)),
                 (fmpq(21,148),fmpq(1281,1252))]
@@ -53,12 +53,15 @@ def verify():
     assert fringe_gap > arb("8e-6")
 
     t = arb("26.81676714125598")
-    eps = arb("1.005e-7")
+    # Allow monotone substitutes with the same exponential scale factor.
+    error = arb(target_error)
+    assert error >= 0
+    eps = arb("1.005e-7")+error
     target = floating["gauge"]["shortest"]["model"]["target"]
-    center = target(11431,t)
+    center = target(11431,t)+arb(0,error.upper())
     radius = arb(".061")
     edge = min((target(10399,t+radius)-center).lower(),(center-target(12500,t-radius)).lower())
-    edge -= eps+arb(".09")*radius
+    edge -= error+eps+arb(".09")*radius
     spread = arb(".1435")*radius-2*eps
     assert edge>0 and spread>0
     common = arb(min(m for m,d in expected))
