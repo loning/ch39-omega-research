@@ -38,7 +38,7 @@ def isolate(seed, response, gain):
     return boxes
 
 
-def possible_phase(strength, response, gain):
+def possible_phase(strength, response, gain, angles=(sine12,sine23)):
     # W_ij = a_ij + exp(i*phi) z_ij. Eliminate cos(phi), sin(phi) from two rows.
     action = gain*response + strength*model["contact"]
     mean = action.trace().real/2
@@ -53,7 +53,7 @@ def possible_phase(strength, response, gain):
         constants.append(a*a+abs(value)**2)
         coefficients.append(2*a*value)
     rows = []
-    for i,s in enumerate((sine12,sine23)):
+    for i,s in enumerate(angles):
         v = coefficients[i]+s*s*coefficients[2]
         rows.append((v.real,-v.imag,s*s*(1-constants[2])-constants[i]))
     (a,b,c),(d,e,f) = rows

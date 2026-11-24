@@ -18,7 +18,7 @@ native = fixed["native"]["plane_response"](acb.zeta_zero(11431).imag)
 contact = ((1+3*k32)*q32+(1+3*k152)*q152)/4
 
 
-def observables(params, derivatives=False, response=native):
+def mixing_matrix(params, derivatives=False, response=native):
     gain,height,phase = params
     action = gain*response+height*contact+phase*identity
     mean = action.trace().real/2
@@ -32,7 +32,7 @@ def observables(params, derivatives=False, response=native):
     w = radial+basis*plane*basis.transpose()
     if not derivatives:
         return w
-    cols = []
+    derivatives_w = []
     for direction in (response,contact,identity):
         dm = direction.trace().real/2
         dep = direction-dm*identity
@@ -40,7 +40,15 @@ def observables(params, derivatives=False, response=native):
         ds = dg*(cosine-sinc)/gap
         derivative = iu*dm*plane+ephase*(-sine*dg*identity + iu*(ds*d+sinc*dep))
         dw = basis*derivative*basis.transpose()
-        cols.append([2*(w[i,j].conjugate()*dw[i,j]).real for i,j in indices])
+        derivatives_w.append(dw)
+    return w, derivatives_w
+
+
+def observables(params, derivatives=False, response=native):
+    if not derivatives:
+        return mixing_matrix(params, response=response)
+    w, derivatives_w = mixing_matrix(params, True, response)
+    cols = [[2*(w[i,j].conjugate()*dw[i,j]).real for i,j in indices] for dw in derivatives_w]
     residual = arb_mat([[abs(w[i,j])**2-z] for (i,j),z in zip(indices,targets)])
     return residual,arb_mat(cols).transpose()
 
