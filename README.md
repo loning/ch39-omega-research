@@ -26,6 +26,7 @@
 |
 +-- 同图检验：让同一批边既传相位，又参与质量传播
 |   +-- 相位：平方弦距 <= 56，同球三分之一格可在九步完成轮换
+|   +-- 反演：在 19 点响应上读回六个零点编号，五个有理圆分界的最小视界为 22277
 |   +-- 质量：固定原 19 点传播块，接入中转边会严格提高原壳质量读数
 |   `-- 待解：哪条局部作用律能同时给出所需相位和质量？
 |
@@ -42,6 +43,8 @@
 这里的辅助态用于复现增广图的三个完整响应。收紧辅助态数的范围，解决的是局部传播需要多少内部自由度。质量与规范耦合的匹配仍依赖所列物理前提。[阈值反演](replay/ch39-independent-integer-gain.py) · [球壳计数](replay/ch39-intrinsic-shell-comparisons.py) · [局部路径](replay/ch39-local-shell-return.py) · [同图质量障碍](replay/ch39-refined-mass-obstruction.py) · [局部秩界](replay/ch39-local-memory-rank.py)
 
 ## 第 39 章的阶段结论
+
+在已知传播矩阵构造的 76 点贝伦德球壳上，取时钟 1，从十九点完整响应的逆矩阵读出一条边的模平方。这个量对各端口分别改变相位保持不变，可用五个精确有理阈值区分第 11485 至 11490 枚正零点。取书中有限射影圆作有序分界，所需的最小整对视界恰为 22277。六个候选的独立物理选择条件仍开放。[推导、精度与上游依据](replay/Ω复算说明.md#有理圆分界与球壳响应中的零点编号) · [复算](replay/ch39-cayley-port-readout.py)
 
 2026 年 11 月 21 日，Lean FRO 与 Mathlib Initiative 联合确认了 Alpöge 的黎曼猜想形式化命题与证明。本仓库取具体正零点的高度包围区间做有限算术检验；物理作用与匹配条件在各节单列。[Lean 与 Mathlib 联合声明](https://leanprover-community.github.io/blog/posts/riemann-hypothesis/)
 
