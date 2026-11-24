@@ -9,17 +9,15 @@ hardy = run_path(str(root/"ch39-hardy-height-selection.py"))
 q = model["q"]
 
 
-def robust_exclusion():
-    delta = q(".001007")
+def robust_exclusion(delta=q(".001007"), time=q("26.861145"), cutoff=10603):
     full = (1-delta).union(1+delta)
     corners = [1-delta,1-delta+q(".0002"),1+delta-q(".0002"),1+delta]
     low,weak_cut,color_cut,high = corners
     faces = [(weak_cut.union(high),full),(low.union(weak_cut),low.union(color_cut)),
              (low.union(weak_cut),color_cut.union(high))]
-    time = q("26.861145")
     offset = q(model["fixed"]["OFFSET"])
     reference = acb.zeta_zero(10854).imag
-    target = model["target"](10854,time)*(reference**2+offset)/(q(10603)**2+offset)
+    target = model["target"](10854,time)*(reference**2+offset)/(q(cutoff)**2+offset)
     logs = [2*(v*q(".99").union(q("1.01"))).log() for v in model["yukawa_centers"]]
     margins = []
     for weak,color in faces:
@@ -33,7 +31,7 @@ def robust_exclusion():
             weak = rate[1]/model["ratios"][1]
             assert 0 < weak < rate[2]
     model["running"]["integrate"]([v*full for v in model["centers"]],33*64,monotonic)
-    print("1007 ppm input box, exclusion margins",
+    print("Gauge exclusion up to",cutoff,"at input half-width",delta.str(7),"margins",
           min(x.lower() for x,_ in margins).str(8),min(x.lower() for _,x in margins).str(8))
 
 
@@ -53,19 +51,19 @@ def widened_witness():
     assert gain > q(".0001")
     # A nearby 64-bit grid point also fits: the same endpoint remains exact after retiming.
     grid = 2**64
-    x = ((earlier*grid).floor())/grid
     offset = q(model["fixed"]["OFFSET"])
-    retiming = ((earlier**2+offset)/(x**2+offset)).log()/2
-    assert abs(retiming)<q("1e-22")
-    # Continue the backward solution over the exact extra time to the grid height.
-    grid_inv,grid_y,_ = model["evolve"](inv,y,-retiming,1,diagonal_quarks=True)
-    assert all(abs(1/(u.sqrt()*c)-1)<q(".001011") for u,c in zip(grid_inv,model["centers"]))
-    assert all(q(".99") < (v/2).exp()/c < q("1.01") for v,c in zip(grid_y,model["yukawa_centers"]))
     finite = run_path(str(root/"ch39-finite-arithmetic-height.py"))
     def grid_score(height):
         return hardy["weight"](height)/(1+abs(finite["finite_value"](height))/256)
     old_grid = arb(195923358475422178854846)/grid
-    assert grid_score(x)>grid_score(old_grid)*(1+q(".00160"))
+    for numerator in [(earlier*grid).floor(),(earlier*grid).ceil()]:
+        x = numerator/grid
+        retiming = ((earlier**2+offset)/(x**2+offset)).log()/2
+        assert abs(retiming)<q("1e-22")
+        grid_inv,grid_y,_ = model["evolve"](inv,y,-retiming,1,diagonal_quarks=True)
+        assert all(abs(1/(u.sqrt()*c)-1)<q(".001011") for u,c in zip(grid_inv,model["centers"]))
+        assert all(q(".99") < (v/2).exp()/c < q("1.01") for v,c in zip(grid_y,model["yukawa_centers"]))
+        assert grid_score(x)>grid_score(old_grid)*(1+q(".00160"))
     print("1011 ppm witness for zero 10854, initial gauge shifts",*[a.str(8) for a in shifts],
           "relative gain",gain.str(9))
 
