@@ -11,7 +11,7 @@ clock, pulses, flavor = (mixture[k] for k in ("clock","pulses","flavor"))
 gauge = run_path(str(root/"ch39-schur-winner-gauge-yukawa.py"))
 
 
-def candidate_sources():
+def candidate_sources(*, include_tangent=False):
     ctx.prec = 192
     run_path(str(root/"ch39-intrinsic-shell-comparisons.py"))["verify"]()
     coeff = [arb(n)/2048 for n in flavor["codes"]]
@@ -20,6 +20,9 @@ def candidate_sources():
         height = z.imag
         response = flavor["native"]["plane_response"](height)
         obs = mixture["direct_observables"](flavor["mixing"](response,coeff))
+        if include_tangent:
+            obs.extend((response[0,0].real, response[1,1].real,
+                        response[0,1].real, response[0,1].imag))
         obs += [1/(height**2+offset)]
         weight = 1/(arb(1)/4+height**2)
         yield n,pulses["generator"](height),weight,obs
@@ -40,7 +43,7 @@ def clock_window():
     return clock_windows((7,))[7]
 
 
-def pulse_measurement(rows, positive_modes, length=7):
+def pulse_expectations(rows, positive_modes, length=7):
     # Each spectral weight is relative to the 1/625 uniform-mode weight.
     assert 624 in sum(weight for _, weight in positive_modes)
     peak = max(rows,key=lambda row: float(row[1].mid()))
@@ -104,8 +107,13 @@ def pulse_measurement(rows, positive_modes, length=7):
     drift = means[-1]/reference-1
     shift = drift.log1p()/2
     residual = arb("1.005e-7")+arb(".13")*abs(shift)
-    vals = mixture["readouts"](means)
-    return peak[0],shift_energy,effective,excitation,probability,drift,vals,residual
+    return peak[0],shift_energy,effective,excitation,probability,drift,means,residual
+
+
+def pulse_measurement(rows, positive_modes, length=7):
+    n, shift, coupling, excitation, probability, drift, means, residual = pulse_expectations(
+        rows, positive_modes, length)
+    return n, shift, coupling, excitation, probability, drift, mixture["readouts"](means), residual
 
 
 def ground_readouts(rows, positive_modes):
