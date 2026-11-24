@@ -5,6 +5,7 @@ from runpy import run_path
 from flint import arb, ctx
 
 ROOT = Path(__file__).parent
+TEN_ONE, TEN_SELF, TEN_CROSS = run_path(str(ROOT/"ch39-two-loop-product-beta.py"))["target_inverse_coefficients"]()
 PLANCK = run_path(str(ROOT/"ch39-quartic-planck-branches.py"))
 RATIO = PLANCK["RATIO"]
 a = RATIO["a"]
@@ -40,14 +41,14 @@ def gauge_rhs(g,h,y):
     # g and h are the inverse squared gauge couplings; y is |x|^2+|y|^2.
     unit = 1/(8*arb.pi()**2)
     return (unit*(a("10/3")-(a("6796/15")/g+594/h-45*y)*unit/2),
-            unit*(33+(a("8713/10")/h-72/g+15*y)*unit/2))
+            unit*(TEN_ONE+(TEN_SELF/h-TEN_CROSS/g+15*y)*unit/2))
 
 
 def exclude_quarter(low):
     pi = arb.pi()
     step = a("1/256")
     unit = 1/(8*pi*pi)
-    slope = unit*(33-72*pi*unit/2)
+    slope = unit*(TEN_ONE-TEN_CROSS*pi*unit/2)
     assert slope > 0
     kmin = (3/(pi/low**2-1)).sqrt()
     kmax = (pi/low**2-3).sqrt()
@@ -61,8 +62,8 @@ def exclude_quarter(low):
         assert g < a(1)
         for j in range(2500):
             t = (j+1)*step
-            h = (h0+unit*(33+15*a(".001")*unit/2)*t
-                 +unit**2*a("8713/10")/(2*slope)*(1+slope*t/hmin).log())
+            h = (h0+unit*(TEN_ONE+15*a(".001")*unit/2)*t
+                 +unit**2*TEN_SELF/(2*slope)*(1+slope*t/hmin).log())
             dg,_ = gauge_rhs(g,h,a(".001"))
             assert dg < 0
             g = (g+step*dg).upper()
@@ -82,7 +83,7 @@ def upper_witness(low):
     y = arb(0).union(a(".001"))
     stop = (a(PLANCK["TARGET"])/a("6e14")).log()
     nsteps = int((stop/step).ceil().unique_fmpz())
-    maximum = a(".26")
+    maximum = a(".31")
     for _ in range(nsteps):
         gt, ht = g+radius, h+radius
         dg,dh = gauge_rhs(gt,ht,y)

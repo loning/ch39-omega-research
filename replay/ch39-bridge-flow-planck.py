@@ -9,6 +9,7 @@ from sympy import fraction
 def verify():
     ctx.prec = 160
     root = Path(__file__).parent
+    TEN_ONE, TEN_SELF, TEN_CROSS = run_path(str(root/"ch39-two-loop-product-beta.py"))["target_inverse_coefficients"]()
     graph = run_path(str(root/"ch39-weighted-arc-zero-phase.py"))
     a, _, fit = run_path(str(root/"ch39-shell-zero-mass-hierarchy.py"))["parameters"]()
     num, den = fraction(graph["response"](3))
@@ -27,7 +28,7 @@ def verify():
         y = yref*z
         ca = a("54/5")/g+a("297/20")/h
         return [unit*(a("25/6")-(a("5921/15")/g+594/h-45*(x+y))*unit/2),
-                unit*(33-(72/g-a("8713/10")/h-15*(x+y))*unit/2),
+                unit*(TEN_ONE-(TEN_CROSS/g-TEN_SELF/h-15*(x+y))*unit/2),
                 unit*x*(13*x+10*y-ca),unit*z*(10*x+13*y-ca)]
 
     def jet(point, degree):
@@ -52,8 +53,8 @@ def verify():
             dt = planck_t-i*step
             box = [s+dt*f for s,f in zip(state,deriv)]
             al, at = 1/(4*pi*box[0]),1/(4*pi*box[1])
-            assert a(".22") < al < a(".23") and a(".016") < at < a(".017")
-            assert a(".44") < box[2].sqrt() < a(".48")
+            assert a(".243") < al < a(".244") and a(".0174") < at < a(".0176")
+            assert a(".421") < box[2].sqrt() < a(".423")
             print("Planck:",al.str(10),at.str(10),"x",box[2].sqrt().str(10))
         coeff = jet(state,4)
         top = jet(tube,5)
@@ -76,8 +77,8 @@ def verify():
         first,last = min(times)*step,(max(times)+1)*step
         print("alpha5 =",label,"t",first.str(10),last.str(10),
               "energy /GeV", (v*first.exp()).str(8),(v*last.exp()).str(8))
-    assert (min(crossed["1/4"])*step > 10 and (max(crossed["1/4"])+1)*step < 11)
-    assert (min(crossed["1"])*step > a("12.5") and (max(crossed["1"])+1)*step < 13)
+    assert (min(crossed["1/4"])*step > a("9.8") and (max(crossed["1/4"])+1)*step < a("9.9"))
+    assert (min(crossed["1"])*step > a("12.0") and (max(crossed["1"])+1)*step < a("12.1"))
 
 
 if __name__ == "__main__":

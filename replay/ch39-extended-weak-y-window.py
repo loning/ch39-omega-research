@@ -6,6 +6,7 @@ from runpy import run_path
 from flint import arb, ctx
 
 ROOT = Path(__file__).parent
+TEN_ONE, TEN_SELF, TEN_CROSS = run_path(str(ROOT/"ch39-two-loop-product-beta.py"))["target_inverse_coefficients"]()
 BASE = run_path(str(ROOT/"ch39-matrix-all-gauge-ratios.py"))
 a = BASE["a"]
 
@@ -27,7 +28,7 @@ def exclusion(low, ratio, initial_radial, coeff):
         return u*(a("2/3")-u/2*(a("8192/15")/g+594/h-15*tr-extra))
 
     def dh(g,h,tr):
-        return u*(33+u/2*(a("8713/10")/h-72/g+5*tr))
+        return u*(TEN_ONE+u/2*(TEN_SELF/h-TEN_CROSS/g+5*tr))
 
     def constrained_interval(lo,hi):
         return max(floor,lo.lower()).union(hi.upper())
@@ -80,8 +81,8 @@ def verify():
     assert low.contains(1/(g+3*h).sqrt())
     assert (4*pi*y/x).sqrt()<a(".001")
     fixed = exclusion(1/(g+3*h).sqrt(),a("8/5"),a("40/2424"),coeff)
-    assert worst <= a("953/256") and worst.exp() < a("41.375")
-    assert fixed <= a("799/256") and v*fixed.exp() < a("1.344e16")
+    assert worst <= a("925/256") and worst.exp() < a("37.088")
+    assert fixed <= a("774/256") and v*fixed.exp() < a("1.219e16")
     print("All 89 gauge-ratio boxes by log scale",worst.str(10),"factor",worst.exp().str(10))
     print("Fixed 624 scalar boundary: factor",fixed.exp().str(10),"scale / GeV",(v*fixed.exp()).str(11))
 

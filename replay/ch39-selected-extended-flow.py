@@ -6,6 +6,7 @@ from runpy import run_path
 from flint import arb,arb_series,ctx
 
 ROOT = Path(__file__).parent
+TEN_ONE, TEN_SELF, TEN_CROSS = run_path(str(ROOT/"ch39-two-loop-product-beta.py"))["target_inverse_coefficients"]()
 SELECT = run_path(str(ROOT/"ch39-rounded-phase-selection.py"))
 MATCH,a = SELECT["MATCH"],SELECT["a"]
 
@@ -38,7 +39,7 @@ def verify():
         z,w = 1/g,1/h
         guard = off[0]*z+off[1]*w
         return [u*(a("2/3")-(a(diagonal)*z+594*w-45*(x+y)-a("12/5")*f-a("54/5")*j)*u/2),
-                u*(33+(a("8713/10")*w-72*z+15*(x+y))*u/2),
+                u*(TEN_ONE+(TEN_SELF*w-TEN_CROSS*z+15*(x+y))*u/2),
                 u*x*(13*x+10*y-guard),u*y*(10*x+13*y-guard),
                 u*f*(a("16/5")*f+3*j-a("72/5")*z),
                 u*j*(f+a("44/5")*j-a("108/5")*z)]
@@ -85,9 +86,9 @@ def verify():
         state = new
         if state[0] < 1/(4*pi):
             break
-    assert scalar_end is not None and scalar_end < a("1.17e15") and scalar_end < 2*v
-    assert a("6.8e16") < gauge_crossings[4] < a("7.1e16")
-    assert a("1.9e17") < gauge_crossings[1] < a("2.1e17")
+    assert scalar_end is not None and scalar_end < a("1.127e15") and scalar_end < 2*v
+    assert a("6.12e16") < gauge_crossings[4] < a("6.15e16")
+    assert a("1.72e17") < gauge_crossings[1] < a("1.74e17")
     print("X contact bound by",scalar_end.str(9),"GeV")
     print("Gauge alpha5 crossings",[(k,win.str(8)) for k,win in gauge_crossings.items()])
 
