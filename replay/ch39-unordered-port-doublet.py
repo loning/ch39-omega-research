@@ -76,6 +76,7 @@ def verify():
         print("first passing comparison count", expected, "reverse population", float(r))
     print("bare doublet at 11431; source singlet probabilities 0 and 25/867")
     print("pure forward values",*(v.str(11) for v in observables(arb(0))))
+    return maximum, endpoint_mass, probability
 
 
 if __name__ == "__main__":
