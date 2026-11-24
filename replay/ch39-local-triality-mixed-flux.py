@@ -10,14 +10,14 @@ SECOND = (0, 1, 1, 2, 2)
 EXPECTED = (0,1,1,1,1, 1,1,1,1,2, 0,0,0,0,0, 1,0,1,0,0, 1,1,0,1,1)
 
 
-def phase_fibers():
+def phase_fibers(first=FIRST, second=SECOND):
     five = base["identity"](5)
     shift = acb_mat(5,5)
     for i in range(5):
         shift[i,(i+1)%5] = 1
     omega = acb(-arb(1)/2, arb(3).sqrt()/2)
     clocks = []
-    for pattern in (FIRST, SECOND):
+    for pattern in (first, second):
         clock = acb_mat(5,5)
         for i, exponent in enumerate(pattern):
             clock[i,i] = omega**exponent
