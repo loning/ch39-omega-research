@@ -25,15 +25,15 @@ def initial(top, upper):
     return state
 
 
-def coefficients(state, order, upper):
-    return grid["rational"]["taylor"](state, order, running, 1/loop, opposite_trace=not upper)
+def coefficients(state, order, upper, flow):
+    return grid["rational"]["taylor"](state, order, flow, 1/loop, opposite_trace=not upper)
 
 
-def advance(state, step, upper, *, need_tube=False):
+def advance(state, step, upper, *, need_tube=False, flow=running):
     rate = arb(1)
     for _ in range(20):
         tube = [x+arb(0,(abs(step)*rate).upper()) for x in state]
-        derivative = coefficients(tube, 1, upper)[1]
+        derivative = coefficients(tube, 1, upper, flow)[1]
         if all(abs(v) < rate for v in derivative):
             break
         rate *= 2
@@ -41,8 +41,8 @@ def advance(state, step, upper, *, need_tube=False):
         raise ArithmeticError("no invariant step enclosure")
     segment = arb(0).union(step)
     tube = [x+segment*v for x,v in zip(state,derivative,strict=True)]
-    terms = coefficients(state,12,upper)
-    end = coefficients(tube,13,upper)[-1]
+    terms = coefficients(state,12,upper,flow)
+    end = coefficients(tube,13,upper,flow)[-1]
     for term in reversed(terms):
         end = [a+step*b for a,b in zip(term,end,strict=True)]
     return (end,tube) if need_tube else end
