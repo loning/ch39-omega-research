@@ -31,15 +31,14 @@ def hull_inputs(entries, factor):
     return [q(x)*q(1-factor).union(q(1+factor)) for x in entries.split()]
 
 
-def enclosure(observe=None):
-    gauge = hull_inputs('.467453 .63811 1.0583', F(1, 1000))
+def integrate(gauge, steps, observe=None):
     start = [1/g**2 for g in gauge]
     yukawa = hull_inputs('.00000615 .00311 .8616 .0000135 .000268 .01401 .0000028227 .00059465 .010101', F(1, 100))
     y = [2*v.log() for v in yukawa]
     correction = [arb(0) for _ in range(3)]
     result = None
     step = q('1/64')
-    for j in range(33*64):
+    for j in range(steps):
         time = j*step+arb(0).union(step)
         wide_x = [u+arb(0, '0.0002') for u in correction]
         wide_y = [u+arb(0, '0.004') for u in y]
@@ -70,7 +69,13 @@ def enclosure(observe=None):
         result = coordinate if result is None else result.union(coordinate)
         correction = [v+step*d for v, d in zip(correction, dx)]
         y = [v+step*d for v, d in zip(y, dy)]
-    return result
+    end = [a+r-2*b*(steps*step)/LOOP for a, r, b in zip(start, correction, BETA)]
+    return result, end
+
+
+def enclosure(observe=None):
+    gauge = hull_inputs('.467453 .63811 1.0583', F(1, 1000))
+    return integrate(gauge, 33*64, observe)[0]
 
 
 def verify():
