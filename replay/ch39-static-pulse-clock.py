@@ -3,21 +3,41 @@ from itertools import islice
 from pathlib import Path
 from runpy import run_path
 
-from flint import acb, arb
+from flint import acb, arb, fmpq, fmpz_poly
 
 pulses = run_path(str(Path(__file__).with_name("ch39-finite-port-pulses.py")))
 
 
-def free_ground(score):
+def free_ground(score, length=7):
     cosine = score.sqrt()
+    if length != 7:
+        order = length+1
+        x = fmpz_poly([0,1])
+        older, polynomial = fmpz_poly([1]), x
+        for _ in range(1,order):
+            older, polynomial = polynomial, 2*x*polynomial-older
+        left = 1-fmpq(2,order**2)
+        brackets = []
+        for endpoint in (cosine.lower(),cosine.upper()):
+            target = endpoint.fmpq()
+            lo,hi = left,fmpq(1)
+            assert polynomial(lo) <= target <= polynomial(hi)
+            for _ in range(70):
+                mid=(lo+hi)/2
+                if polynomial(mid)<target:
+                    lo=mid
+                else:
+                    hi=mid
+            brackets.append(arb(lo).union(arb(hi)))
+        return 2*(1-brackets[0].union(brackets[1]))
     for _ in range(3):
         cosine = ((1+cosine)/2).sqrt()
     return 2*(1-cosine)
 
 
-def endpoint(energy, diagonal):
+def endpoint(energy, diagonal, length=7):
     pivot, derivative = diagonal-energy, arb(-1)
-    for _ in range(6):
+    for _ in range(length-1):
         derivative = -1+derivative/pivot**2
         pivot = 2-energy-1/pivot
     inverse = 1/(3-energy-1/pivot)

@@ -11,36 +11,43 @@ clock, pulses, flavor = (mixture[k] for k in ("clock","pulses","flavor"))
 gauge = run_path(str(root/"ch39-schur-winner-gauge-yukawa.py"))
 
 
-def clock_window():
+def clock_windows(lengths):
     ctx.prec = 192
     run_path(str(root/"ch39-intrinsic-shell-comparisons.py"))["verify"]()
     coeff = [arb(n)/2048 for n in flavor["codes"]]
     offset = gauge["shortest"]["q"](gauge["shortest"]["model"]["fixed"]["OFFSET"])
-    rows = []
+    windows = {length: [] for length in lengths}
     for n, z in enumerate(acb.zeta_zeros(10815, 1278),10815):
         height = z.imag
         stream = pulses["pulse_records"](pulses["generator"](height))
-        p = next(islice(stream,6,7))[0]
         response = flavor["native"]["plane_response"](height)
         obs = mixture["direct_observables"](flavor["mixing"](response,coeff))
         obs += [1/(height**2+offset)]
-        rows.append((n,p,1/(arb(1)/4+height**2),obs))
-    total = sum(w for n,p,w,obs in rows)
-    return [(n,p,w/total,obs) for n,p,w,obs in rows]
+        weight = 1/(arb(1)/4+height**2)
+        for length,record in enumerate(islice(stream,max(lengths)),1):
+            if length in windows:
+                windows[length].append((n,record[0],weight,obs))
+    total = sum(row[2] for row in windows[max(lengths)])
+    return {length: [(n,p,w/total,obs) for n,p,w,obs in rows] for length,rows in windows.items()}
 
 
-def ground_readouts(rows, positive_modes):
+def clock_window():
+    return clock_windows((7,))[7]
+
+
+def pulse_measurement(rows, positive_modes, length=7):
     # Each spectral weight is relative to the 1/625 uniform-mode weight.
     assert 624 in sum(weight for _, weight in positive_modes)
-    peak = next(row for row in rows if row[0] == 11431)
-    second = max(p.upper() for n,p,w,obs in rows if n != 11431)
+    peak = max(rows,key=lambda row: float(row[1].mid()))
+    second = max(p.upper() for n,p,w,obs in rows if n != peak[0])
+    assert peak[1]>second
     def boundary(energy):
-        a,da = clock["endpoint"](energy,1)
-        b,db = clock["endpoint"](energy,3)
+        a,da = clock["endpoint"](energy,1,length)
+        b,db = clock["endpoint"](energy,3,length)
         return a-b,b,da-db,db
 
     def trace(t, full=False):
-        energy = clock["free_ground"](peak[1]-t)
+        energy = clock["free_ground"](peak[1]-t,length)
         span,base,dspan,dbase = boundary(energy)
         higher_blocks = [(weight,*boundary(energy-level)) for level,weight in positive_modes]
         low_trace, high_trace = arb(0), arb(0)
@@ -49,7 +56,7 @@ def ground_readouts(rows, positive_modes):
         for n,p,w,obs in rows:
             m = base+span*p
             # 1-2m is exact in this form because p* - t sets m = 1/2.
-            den = 2*span*((peak[1]-p)-t) if n != 11431 else -2*span*t
+            den = 2*span*((peak[1]-p)-t) if n != peak[0] else -2*span*t
             low_trace += w*m/den
             higher = arb(0)
             for weight,ea,eb,eda,edb in higher_blocks:
@@ -62,7 +69,7 @@ def ground_readouts(rows, positive_modes):
                 ground = w*(dbase+dspan*p)/den**2
                 low_norm += ground
                 high_norm += higher
-                if n == 11431:
+                if n == peak[0]:
                     peak_norm = ground+higher
                 else:
                     for k,x in enumerate(obs):
@@ -80,16 +87,26 @@ def ground_readouts(rows, positive_modes):
         sign = trace(mid)
         if sign < 0:
             lo = mid
-        else:
-            assert sign > 0
+        elif sign > 0:
             hi = mid
+        else:
+            assert hi-lo < arb("1e-11")
+            break
     t = lo.union(hi)
-    shift_energy = clock["free_ground"](peak[1]-t)-clock["free_ground"](peak[1])
+    shift_energy = clock["free_ground"](peak[1]-t,length)-clock["free_ground"](peak[1],length)
     effective, excitation, probability, means = trace(t,True)
-    drift = means[-1]/peak[3][-1]-1
+    reference = next(row[3][-1] for row in rows if row[0]==11431)
+    drift = means[-1]/reference-1
     shift = drift.log1p()/2
     residual = arb("1.005e-7")+arb(".13")*abs(shift)
     vals = mixture["readouts"](means)
+    return peak[0],shift_energy,effective,excitation,probability,drift,vals,residual
+
+
+def ground_readouts(rows, positive_modes):
+    n,shift_energy,effective,excitation,probability,drift,vals,residual = pulse_measurement(rows,positive_modes)
+    assert n == 11431
+    shift = drift.log1p()/2
     tolerances = [flavor["shell"]["sine_radius"]]*3+[flavor["shell"]["phase_radius"]]
     assert all(abs(v-c) < r for v,c,r in zip(vals,flavor["shell"]["centers"],tolerances))
     assert residual < arb(2)**-21
