@@ -3,6 +3,8 @@ from fractions import Fraction as F
 from pathlib import Path
 from runpy import run_path
 
+TEN_ONE, TEN_SELF, TEN_CROSS = run_path(str(Path(__file__).with_name("ch39-two-loop-product-beta.py")))["target_inverse_coefficients"]()
+
 from flint import arb, ctx
 
 ROOT = Path(__file__).parent
@@ -31,7 +33,7 @@ def crossing(states, species, initial):
         z,w = 1/g,1/h
         casimir = a("54/5")*z+a("297/20")*w
         return [2*k*(a("10/3")-(a("6796/15")*z+594*w-45*(x+y))*k),
-                2*k*(33+(a("8713/10")*w-72*z+15*(x+y))*k),
+                2*k*(TEN_ONE+(TEN_SELF*w-TEN_CROSS*z+15*(x+y))*k),
                 2*k*x*(13*x+10*y-casimir),2*k*y*(10*x+13*y-casimir)]
     step = a("1/4096")
     radius = (-step).union(step)

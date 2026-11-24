@@ -7,6 +7,7 @@ from flint import arb, ctx
 from sympy import Matrix, eye, ones
 
 ROOT = Path(__file__).parent
+TEN_ONE, TEN_SELF, TEN_CROSS = run_path(str(ROOT/"ch39-two-loop-product-beta.py"))["target_inverse_coefficients"]()
 BASE = run_path(str(ROOT/"ch39-matrix-all-gauge-ratios.py"))
 a = BASE["a"]
 
@@ -23,7 +24,7 @@ def trace_caps(horizon,step,pi,u):
     inv = (1/(24*pi)).lower()
     caps = []
     for i in reversed(range(count)):
-        C = 54*pi/5+a("297/20")/(1/pi+a(".39")*i*step)
+        C = 54*pi/5+a("297/20")/(1/pi+a(".36")*i*step)
         C = C.upper()
         decay = (-u*C*step).exp()
         prev = (inv*decay+a("23/6")/C*(1-decay)).lower()
@@ -41,7 +42,7 @@ def check_horizon(low,ratio,step,caps,pi,u):
             return i
         # Each upper comparison endpoint can move at most one step in the tube.
         dg = u*(a("2/3")-u/2*(a("8192/15")/(g+step)+594/(h+step)-15*tr-extra))
-        dh = u*(33+u/2*(a("8713/10")/max(floor,h-step)-72/(g+step)+5*tr))
+        dh = u*(TEN_ONE+u/2*(TEN_SELF/max(floor,h-step)-TEN_CROSS/(g+step)+5*tr))
         g,h = (g+step*dg).upper(),(h+step*dh).upper()
     assert min(g,h)<floor, (low,ratio,g,h)
     return len(caps)
@@ -53,9 +54,9 @@ def verify():
     pi = arb.pi()
     u = 1/(8*pi*pi)
     step = a("1/256")
-    assert u*(33-u*36*pi)>a(".39")
+    assert u*(TEN_ONE-u*TEN_CROSS*pi/2)>a(".36")
     assert u*(a("2/3")+u/2*((a("8192/15")+594)*pi+15*24*pi+a("66/5")*4*pi))<1
-    assert u*(33+u/2*((a("8713/10")+72)*pi+5*24*pi))<1
+    assert u*(TEN_ONE+u/2*((TEN_SELF+TEN_CROSS)*pi+5*24*pi))<1
     low = a(".739").union(a(".741"))
     assert (3/(pi/low**2-1)).sqrt()>a(".78") and (pi/low**2-3).sqrt()<a("1.67")
     horizon = a("17/2")

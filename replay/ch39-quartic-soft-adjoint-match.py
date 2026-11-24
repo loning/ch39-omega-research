@@ -87,7 +87,7 @@ def verify():
     charged_eigenvectors()
     for n,kind,r,v,state in matched_points():
         alpha5,alpha10 = FLOW["full_flow"](state,(a(PLANCK["TARGET"])/v).log())
-        assert a(".19") < alpha5 < a(".22") and a(".016") < alpha10 < a(".018")
+        assert a(".227") < alpha5 < a(".231") and a(".0179") < alpha10 < a(".0181")
         print(n,kind,"u/v",r.str(9),"v/GeV",v.str(8),"Planck",alpha5.str(7),alpha10.str(7))
 
 

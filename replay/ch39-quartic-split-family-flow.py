@@ -6,6 +6,7 @@ from runpy import run_path
 from flint import arb, arb_series, ctx
 
 ROOT = Path(__file__).parent
+TEN_ONE, TEN_SELF, TEN_CROSS = run_path(str(ROOT/"ch39-two-loop-product-beta.py"))["target_inverse_coefficients"]()
 PLANCK = run_path(str(ROOT/"ch39-quartic-planck-branches.py"))
 RATIO = PLANCK["RATIO"]
 a = RATIO["a"]
@@ -16,7 +17,7 @@ def initial_states():
     powers = PLANCK["mass_exponents"](products)
     scores = RATIO["thresholds"]
     match = RATIO["MODEL"]["matched"]
-    k, large = a("159/100"), a("81/50")
+    k, large = a("159/100"), a("333/200")
     for n,height,eps in RATIO["high_zero_readings"]():
         low,v,_ = match(scores(products,arb(1)),eps,arb(1))
         anchor = v/low*(2*arb.pi()*(height**2+a("1/4")+30+a("2/15"))/(3*arb(5).sqrt()/2)).sqrt()
@@ -42,7 +43,7 @@ def initial_states():
 def full_flow(state, duration):
     pi = arb.pi()
     unit = 1/(8*pi**2)
-    b5, diag5, diag10 = a("10/3"),a("6796/15"),a("8713/10")
+    b5, diag5, diag10 = a("10/3"),a("6796/15"),TEN_SELF
     cg5, cg10 = a("54/5"),a("297/20")
     def rhs(z):
         g,h = z[:2]
@@ -50,7 +51,7 @@ def full_flow(state, duration):
         sx,sy = sum(x),sum(y)
         gauge = cg5/g+cg10/h
         dg = unit*(b5-(diag5/g+594/h-15*(sx+sy))*unit/2)
-        dh = unit*(33+(diag10/h-72/g+5*(sx+sy))*unit/2)
+        dh = unit*(TEN_ONE+(diag10/h-TEN_CROSS/g+5*(sx+sy))*unit/2)
         dx = [unit*xi*(10*xi+sx+5*(y[i]+y[(i+1)%3])-gauge) for i,xi in enumerate(x)]
         dy = [unit*yi*(10*yi+sy+5*(x[i]+x[(i-1)%3])-gauge) for i,yi in enumerate(y)]
         return [dg,dh,*dx,*dy]
@@ -64,11 +65,12 @@ def full_flow(state, duration):
         return seqs
 
     step = a("1/128")
-    margin = (-2*step).union(2*step)
+    speeds = [2,2,32,32,32,2,2,2]
+    margins = [(-s*step).union(s*step) for s in speeds]
     for i in range(int((duration/step).ceil().unique_fmpz())):
-        tube = [s+margin for s in state]
+        tube = [s+m for s,m in zip(state,margins)]
         slope = rhs(tube)
-        assert all(abs(ds)<2 for ds in slope)
+        assert all(abs(ds)<s for ds,s in zip(slope,speeds))
         assert slope[0]<0<slope[1]
         # H is increasing, so its starting endpoint is the lower bound for the step.
         assert 1/(4*pi*state[1]) < a("1/4") and 1/(4*pi*tube[0]) < a("1/4")
@@ -91,7 +93,7 @@ def verify():
     ctx.prec = 160
     for n,kind,v,state in initial_states():
         alpha5,alpha10 = full_flow(state,(a(PLANCK["TARGET"])/v).log())
-        assert a(".22") < alpha5 < a(".24") and a(".016") < alpha10 < a(".018")
+        assert a(".22") < alpha5 < a(".25") and a(".017") < alpha10 < a(".019")
         print(n,kind,"Planck alpha5,alpha10",alpha5.str(8),alpha10.str(8))
 
 

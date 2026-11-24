@@ -2,8 +2,11 @@
 from pathlib import Path
 from runpy import run_path
 
+
 from flint import arb, arb_series, ctx
 from sympy import cancel, symbols
+
+TEN_ONE, TEN_SELF, TEN_CROSS = run_path(str(Path(__file__).with_name("ch39-two-loop-product-beta.py")))["target_inverse_coefficients"]()
 
 
 def check_identities():
@@ -43,7 +46,7 @@ def verify_flow():
         sx,sy = sum(x),sum(y)
         guard = a("54/5")*z+a("297/20")*w
         dg = u*(a("2/3")-u/2*(a("8192/15")*z+594*w-15*(sx+sy)-a("12/5")*f-a("54/5")*j))
-        dh = u*(33+u/2*(a("8713/10")*w-72*z+5*(sx+sy)))
+        dh = u*(TEN_ONE+u/2*(TEN_SELF*w-TEN_CROSS*z+5*(sx+sy)))
         dx = [u*t*(10*t+sx+5*(y[i]+y[(i+1)%3])-guard) for i,t in enumerate(x)]
         dy = [u*t*(10*t+sy+5*(x[i]+x[i-1])-guard) for i,t in enumerate(y)]
         return [dg,dh,*dx,*dy,u*f*(a("16/5")*f+3*j-a("72/5")*z),
@@ -77,7 +80,7 @@ def verify_flow():
         if max(nxt[3].lower(),nxt[4].lower())>4*pi:
             assert state[3] < 4*pi and state[4] < 4*pi
             scale = v*((i*step).exp().union(((i+1)*step).exp()))
-            assert a("8.32e14") < scale < a("8.34e14")
+            assert a("8.35e14") < scale < a("8.37e14")
             print("Log step", i, "to", i+1, "over 1024")
             print("Family ratios relative to the shell at the last step start",
                   [(state[5+j]/(state[2+j]*e)).sqrt().str(8) for j in range(3)])

@@ -6,6 +6,7 @@ from runpy import run_path
 from flint import arb, ctx
 
 ROOT = Path(__file__).parent
+TEN_ONE, TEN_SELF, TEN_CROSS = run_path(str(ROOT/"ch39-two-loop-product-beta.py"))["target_inverse_coefficients"]()
 MATRIX = run_path(str(ROOT/"ch39-quartic-matrix-crossing.py"))
 a, MATCH = MATRIX["a"], MATRIX["MATCH"]
 
@@ -27,11 +28,11 @@ def exclude(low, k, gauge_coefficients):
     aa,bb,ab = gauge_coefficients
     c5,c10 = a("18/5"),a("99/20")
     assert 4*aa*bb>ab**2
-    diag5, diag10 = a("6796/15"),a("8713/10")
+    diag5, diag10 = a("6796/15"),TEN_SELF
     def dg(g,h,tr):
         return unit*(a("10/3")-(diag5/g+594/h-15*tr)*unit/2)
     def dh(g,h,tr):
-        return unit*(33+(diag10/h-72/g+5*tr)*unit/2)
+        return unit*(TEN_ONE+(diag10/h-TEN_CROSS/g+5*tr)*unit/2)
     for j in range(1280):
         if g.upper()<floor or h.upper()<floor:
             return j*step
