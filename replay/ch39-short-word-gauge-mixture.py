@@ -50,15 +50,19 @@ def mixed_ports():
 def common_state(ports):
     for copies in range(1,33):
         assert not events["possible_light_events"](events["orbit_weights_from_ports"](copies,ports))
+    ys = table_readout(ports)
+    assert all(events["low"][n]<r<events["high"][n] for n,r in zip(events["names"],ys,strict=True))
+    return [arb(v)/ports[0] for v in ports[1:]]+[q(r) for r in ys]
+
+
+def table_readout(ports):
     weights = events["orbit_weights_from_ports"](33,ports)
     masses,used = events["event_masses"](weights)
     extra = (18,6,3)
     table = (root/"ch39-common-yukawa-events.tsv").read_text().splitlines()
     assert extra in used and any(line.split() == ["18","6","3","ref"] for line in table)
     masses["ref"] -= weights[extra]
-    ys = [Fraction(masses[n],masses["ref"]) for n in events["names"]]
-    assert all(events["low"][n]<r<events["high"][n] for n,r in zip(events["names"],ys,strict=True))
-    return [arb(v)/ports[0] for v in ports[1:]]+[q(r) for r in ys]
+    return [Fraction(masses[n],masses["ref"]) for n in events["names"]]
 
 
 def residuals(state,time):
