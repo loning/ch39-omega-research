@@ -10,12 +10,17 @@ geometry,columns,source = (native[k] for k in ("geo","columns","source"))
 unit = acb_mat([[int(i==j) for j in inside] for i in inside])
 
 
-def parent_data(height):
-    m = geometry["matrix"](0,geometry["phases"](height))
+def parent_blocks(phases):
+    m = geometry["matrix"](0, phases)
     block = acb_mat([[m[i,j] for j in inside] for i in inside])
+    f = columns*acb_mat([[m[origin,portals[0]],0],[0,m[origin,portals[1]]]])
+    return block, f
+
+
+def parent_data(height):
+    block, f = parent_blocks(geometry["phases"](height))
     inv = block.inv()
     assert sum(abs(v)**2 for v in inv.entries()) < 1
-    f = columns*acb_mat([[m[origin,portals[0]],0],[0,m[origin,portals[1]]]])
     t0 = -f*(source.transpose()*inv*source)*f.conjugate().transpose()
     assert 0 < abs(t0[0,1].imag) < arb(".025")
     return block,f

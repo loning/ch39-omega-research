@@ -12,7 +12,10 @@ imaginary = acb(0, 1)
 
 
 def generator(height):
-    shell = model["hamiltonian"](height)
+    return attach_ports(model["hamiltonian"](height))
+
+
+def attach_ports(shell):
     coupled = acb_mat(40, 40)
     for i in range(38):
         for j in range(38):

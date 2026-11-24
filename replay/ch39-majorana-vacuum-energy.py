@@ -10,7 +10,10 @@ unit = acb_mat([[int(i==j) for j in range(38)] for i in range(38)])
 
 
 def hamiltonian(height):
-    m,f = shell["parent_data"](height)
+    return paired_hamiltonian(*shell["parent_data"](height))
+
+
+def paired_hamiltonian(m, f):
     f = (f*shell["source"].transpose())/arb(2).sqrt()
     h = acb_mat(38,38)
     for i in range(18):
