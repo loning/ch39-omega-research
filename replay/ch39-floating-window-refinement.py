@@ -9,7 +9,7 @@ base = run_path(str(Path(__file__).with_name('ch39-prime-window-matching-scale.p
 fixed, q = base['fixed'], base['q']
 
 
-def trajectory(initial, check_outside):
+def trajectory(initial, check_outside, tolerance=0):
     steps = 64
     center = int(steps*fixed['L'])
     radius = steps//8
@@ -21,17 +21,17 @@ def trajectory(initial, check_outside):
             derivatives = rate if derivatives is None else [a.union(b) for a,b in zip(derivatives,rate)]
         elif check_outside and i >= 23*steps:
             normalized = [x/v for x,v in zip(inverse,ratios)]
-            assert max(x.lower() for x in normalized)>min(x.upper() for x in normalized)
+            assert max(x.lower() for x in normalized)>min(x.upper() for x in normalized)+2*tolerance
     integrate = fixed['model']['running']['integrate']
     _, at_center = integrate(initial,center)
     integrate(initial,33*steps if check_outside else center+radius,observe)
     return list(zip(at_center,derivatives,strict=True))
 
 
-def scale_bounds():
+def scale_bounds(tolerance=0):
     faces = [(q(c*F(999,1000)),q(c*F(1001,1000))) for c in fixed['model']['GAUGE']]
     box = [a.union(b) for a,b in faces]
-    all_data = trajectory(box,True)
+    all_data = trajectory(box,True,tolerance)
     side_data = [[],[]]
     for i in range(3):
         for side in range(2):
@@ -41,7 +41,7 @@ def scale_bounds():
     return all_data, side_data
 
 
-def bands(data):
+def bands(data, tolerance=0):
     scale = 65536
     ratios = [q(x) for x in fixed['V']]
     coeff = (fixed['geo']['BOOK_PLANCK']/1000)**2*(3*arb(5).sqrt()/2)/(2*arb.pi())
@@ -54,8 +54,8 @@ def bands(data):
         left, right = arb(i)/scale,arb(i+1)/scale
         slab = left.union(right)
         all_values = shifted(data[0],slab)
-        low = max(v.lower() for v in all_values)
-        high = min(v.upper() for v in all_values)
+        low = (max(v.lower() for v in all_values)-tolerance).lower()
+        high = (min(v.upper() for v in all_values)+tolerance).upper()
         def height(dt,g):
             return (constant*(-2*dt).exp()/g-offset).sqrt()
         if low > high:

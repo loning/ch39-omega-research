@@ -40,6 +40,7 @@ class FlowBounds:
     transformed_rates: list
     rates: list
     determinant: arb
+    residual_norms: list
 
 
 def variations(low, logs):
@@ -98,17 +99,22 @@ def prepare(gauge_lo, gauge_hi, logs):
     faces = [(center[i,0]+residual[i]+(gauge_hi[i]-x_ref[i]),
               center[i,0]+residual[i]+(gauge_lo[i]-x_ref[i])) for i in range(3)]
     return FlowBounds(faces, [remainder[i,top] for i in range(3)], list(normalized),
-                      list(slope), rates, m.det())
+                      list(slope), rates, m.det(),
+                      [sum(abs(pre[i,j])*ratios[j] for j in range(3)) for i in range(3)])
 
 
-def widths(target, data, top):
+def widths(target, data, top, tolerance=0):
     # High and low faces of each input coordinate bound its first and last crossing.
     both = [[], []]
     for i in range(3):
         norm = data.target_ratios[i]
         assert norm > 0
+        # Uniformly enclose the translated residual target for every point
+        # in the three-dimensional tolerance cube, including all entry faces.
+        shift = arb(0, tolerance*data.residual_norms[i])
+        assert data.rates[i]/ratios[i] + 2*target*(-2*radius).exp() > 0
         for side, value in enumerate(data.faces[i]):
-            start = (value + data.top_sensitivity[i]*top)/norm
+            start = (value + data.top_sensitivity[i]*top + shift)/norm
             rate = data.transformed_rates[i]/norm
             delta = (-radius).union(radius)
             assert target*(2*radius).exp() > start-radius*rate
@@ -130,7 +136,7 @@ def widths(target, data, top):
     return [((density*lo).lower(), (density*(latest-earliest)).upper()) for density in densities]
 
 
-def verify():
+def verify(tolerance=0):
     ctx.prec = 112
     gauge_lo = [1/(c*q("1.001"))**2 for c in gauge["centers"]]
     gauge_hi = [1/(c*q(".999"))**2 for c in gauge["centers"]]
@@ -141,9 +147,11 @@ def verify():
     offset = q(fixed["OFFSET"])
     # Regenerate the necessary band over 23 <= L <= 33 with its independent enclosure.
     window = run_path(str(root / "ch39-floating-window-refinement.py"))
-    outer, _ = window["bands"](window["scale_bounds"]())
+    outer, _ = window["bands"](window["scale_bounds"](tolerance), tolerance)
     first, last = window["base"]["certified_labels"](*outer)
-    assert (first,last) == (10815,12092)
+    if not tolerance:
+        assert (first,last) == (10815,12092)
+    print("normalized residual half-width", tolerance, "outer labels", first, last)
     zeros = acb.zeta_zeros(first, last-first+1)
     assert len(zeros) == last-first+1 and all(z.real == q("1/2") for z in zeros)
     targets = {n:(common/(z.imag**2+offset),base["spectral"]["weight"](z.imag))
@@ -162,7 +170,7 @@ def verify():
                   [(b-a)/(linear[-1]-linear[0]) for a,b in zip(linear,linear[1:])]]
         for n in candidates:
             target, weight = targets[n]
-            intervals = [widths(target,data,y) for y in bins]
+            intervals = [widths(target,data,y,tolerance) for y in bins]
             for mode, protocol in enumerate(protocols):
                 for measure, mass in zip(measures,masses):
                     lo = weight*sum(p*val[mode][0] for p,val in zip(mass,intervals))
@@ -179,8 +187,12 @@ def verify():
         lo, hi = rankings[11737]
         rival = max(v[1] for n,v in rankings.items() if n != 11737)
         margin = lo/rival - 1
-        assert margin > q(".0010946" if protocol == "adjustable scale" else ".0021401")
-        if (protocol,measure) == ("adjustable scale","log Yukawa"):
+        assert margin > 0
+        if not tolerance:
+            assert margin > q(".0010946" if protocol == "adjustable scale" else ".0021401")
+        elif tolerance == arb(2)**-21:
+            assert margin > q(".0005196" if protocol == "adjustable scale" else ".0015648")
+        if not tolerance and (protocol,measure) == ("adjustable scale","log Yukawa"):
             assert lo > q("3.07870e-10") and rival < q("3.07535e-10")
         print(protocol, measure, "11737 score", lo.str(9), hi.str(9),
               "largest rival upper bound", rival.str(9), "relative advantage >", margin.lower().str(9))
