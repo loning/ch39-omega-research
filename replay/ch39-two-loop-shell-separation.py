@@ -31,13 +31,13 @@ def hull_inputs(entries, factor):
     return [q(x)*q(1-factor).union(q(1+factor)) for x in entries.split()]
 
 
-def integrate(gauge, steps, observe=None):
+def integrate(gauge, steps, observe=None, *, subdivisions=64):
     start = [1/g**2 for g in gauge]
     yukawa = hull_inputs('.00000615 .00311 .8616 .0000135 .000268 .01401 .0000028227 .00059465 .010101', F(1, 100))
     y = [2*v.log() for v in yukawa]
     correction = [arb(0) for _ in range(3)]
     result = None
-    step = q('1/64')
+    step = q(F(1, subdivisions))
     for j in range(steps):
         time = j*step+arb(0).union(step)
         wide_x = [u+arb(0, '0.0002') for u in correction]
@@ -45,7 +45,7 @@ def integrate(gauge, steps, observe=None):
         residual = [a+b for a, b in zip(start, wide_x)]
         inverse = [a-2*b*time/LOOP for a, b in zip(residual, BETA)]
         assert all(g > q('1/2') for g in inverse)
-        if j >= 23*64:
+        if j >= 23*subdivisions:
             assert 4*arb.pi()*inverse[1] > 42
         gs = [1/v for v in inverse]
         ys = [v.exp() for v in wide_y]
