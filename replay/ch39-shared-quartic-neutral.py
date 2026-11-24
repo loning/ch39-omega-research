@@ -23,12 +23,12 @@ def bisect(function,lo,hi):
     return lo.union(hi)
 
 
-def pole_resolvent(vertices,lengths,tree_count):
+def pole_resolvent(vertices,lengths,tree_count,*, edge_filter=None):
     n=len(vertices)
     lap=fmpz_mat(n,n)
     for i,p in enumerate(vertices):
         for j in range(i):
-            if graph["squared"](p,vertices[j]) in lengths:
+            if graph["squared"](p,vertices[j]) in lengths and (edge_filter is None or edge_filter(p,vertices[j])):
                 lap[i,j]=lap[j,i]=-1
                 lap[i,i]+=1
                 lap[j,j]+=1
@@ -49,7 +49,7 @@ def pole_resolvent(vertices,lengths,tree_count):
     return green
 
 
-def parameters():
+def parameters(*, include_graphs=False):
     ctx.prec=192
     data=run_path(str(root/"ch39-published-gauge-inputs.py"))
     log_q=data["q"]("26.81725683017028")
@@ -86,7 +86,8 @@ def parameters():
     gr=pole_resolvent(right,(56,12,68),12)
     def active(energy,derivative=False):
         return g*g*(3*gc(energy,unit,derivative)/8+gr(energy,unit,derivative)/4)
-    return g,u,w,m3,h,active
+    result = (g,u,w,m3,h,active)
+    return (*result,unit,gc,gr) if include_graphs else result
 
 
 def verify():
