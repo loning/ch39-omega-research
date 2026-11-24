@@ -45,6 +45,30 @@ def at(block,t):
     return block[0] + block[1]*w + block[-1]*w.conjugate()
 
 
+def finite_readout():
+    cutoff = arb('.070')
+    degree = 32
+    # A positive polynomial, bounded by one after this common fixed normalization.
+    normalization = (degree*(arb('.079546')/cutoff).acosh()).cosh()
+    amplified = (degree*(arb('.0795438')/cutoff).acosh()).cosh()
+    leakage = 1/(amplified*arb('.001'))**2
+    port_floor = (amplified/normalization)**2*arb('.001')**2*(1-leakage)
+    assert port_floor > arb('.000000996')
+    relative_rounding = 2/(arb(2)**45*port_floor)
+    retained = ((1-leakage)/(1+leakage)*(1-relative_rounding)/(1+relative_rounding))**2
+    coefficients = 4*(1-retained)*(arb(13)/4)**2
+    h = arb(2).sqrt()
+    eta = coefficients*3*(1+h)/((3*h-4)*(9-4*h)/13)
+    shift = 2*(1-arb('.99839735')-arb('8.762e-6'))*eta/(1-eta)
+    lo = arb('277.636')*((1-eta)/(1+eta)).sqrt()
+    hi = arb('277.641')*((1+eta)/(1-eta)).sqrt()
+    assert eta < arb('.001467') and shift < arb('.00000469')
+    assert 0 < arb('8.762e-6')-shift < arb('8.782e-6')+shift < 1/arb(2)**16
+    assert lo > arb('277.22') and hi < arb('278.06')
+    print('Degree 64 with 45-bit absolute readout:', lo.lower().str(10), hi.upper().str(10),
+          'port floor', port_floor.lower().str(10), 'time half-width', shift.upper().str(10))
+
+
 def verify():
     ctx.prec = 160
     nodes, edges = shell['geometry']()
@@ -69,7 +93,8 @@ def verify():
         assert all(abs(v)+error < rest_ratio*(winner-error) for v in others)
         assert winner-error > arb('.0795438')
         assert all(abs(v)+error < arb('.0795412') for v in others)
-        assert max(by_size[:-1])+error < arb('.070')
+        assert all(abs(v)+error < arb('.070') for v in by_size[:-1])
+        assert winner+error < arb('.079546')
 
     # Only one known eigenpair is needed for a sample-independent component bound.
     e,vectors = at(blocks[0],arb(0)).eig(right=True)
@@ -88,6 +113,7 @@ def verify():
     minimum = min(abs(lifted[i]) for i,p in enumerate(nodes[:19]) if p!=(51,51,51))
     lower = minimum-arb(2).sqrt()*sine
     assert lower > arb('.001')
+    finite_readout()
     count = 1000000
     leakage = rest_ratio**count/arb('.001')**2
     assert leakage < arb('1e-7')
