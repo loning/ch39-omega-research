@@ -18,9 +18,9 @@ native = fixed["native"]["plane_response"](acb.zeta_zero(11431).imag)
 contact = ((1+3*k32)*q32+(1+3*k152)*q152)/4
 
 
-def observables(params, derivatives=False):
+def observables(params, derivatives=False, response=native):
     gain,height,phase = params
-    action = gain*native+height*contact+phase*identity
+    action = gain*response+height*contact+phase*identity
     mean = action.trace().real/2
     d = action-mean*identity
     gap = (d[0,0].real**2 + abs(d[0,1])**2).sqrt()
@@ -33,7 +33,7 @@ def observables(params, derivatives=False):
     if not derivatives:
         return w
     cols = []
-    for direction in (native,contact,identity):
+    for direction in (response,contact,identity):
         dm = direction.trace().real/2
         dep = direction-dm*identity
         dg = (d[0,0].real*dep[0,0].real + (d[0,1].conjugate()*dep[0,1]).real)/gap
@@ -45,17 +45,17 @@ def observables(params, derivatives=False):
     return residual,arb_mat(cols).transpose()
 
 
-def center_fit(seed):
+def center_fit(seed, response=native):
     point = list(map(arb,seed))
     for _ in range(3):
-        f,jac = observables(point,True)
+        f,jac = observables(point,True,response)
         step = jac.solve(f)
         point = [(v-step[i,0]).mid() for i,v in enumerate(point)]
     r = arb("1e-20")
     box = [v+arb(0,r.upper()) for v in point]
-    f,jac = observables(point,True)
+    f,jac = observables(point,True,response)
     a = jac.inv()
-    _,vary = observables(box,True)
+    _,vary = observables(box,True,response)
     rem = arb_mat([[int(i==j) for j in range(3)] for i in range(3)])-a*vary
     lip = max(sum(abs(rem[i,j]) for j in range(3)).upper() for i in range(3))
     resid = a*f
@@ -63,8 +63,8 @@ def center_fit(seed):
     return box
 
 
-def phase_readout(params):
-    w = observables(params)
+def phase_readout(params,response=native):
+    w = observables(params,response=response)
     ycp = (w[0,0]*w[1,0].conjugate()*w[1,1]*w[0,1].conjugate()).imag
     a,b,c = ((1-z*z).sqrt() for z in (s,t,u))
     sd = ycp/(a*b*c*c*s*t*u)

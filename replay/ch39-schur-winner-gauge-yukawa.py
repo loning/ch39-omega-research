@@ -14,9 +14,9 @@ word = ("0404242552511431313024220521442030212131342034420352511443530433"
         "0522055220241342402535111240550351421314034155224000404253400213")
 
 
-def verify():
+def gauge_match(sequence, label, log_scale, discarded=None):
     ctx.prec = 144
-    letters = list(map(int, word))
+    letters = list(map(int, sequence))
     assert len(letters) == 128 and all((a^1) != b for a,b in zip(letters,letters[1:]))
     coords = (1,0,0,0)
     for index in letters:
@@ -31,27 +31,28 @@ def verify():
         assert not events["possible_light_events"](events["orbit_weights"](copies,coords))
     weights = events["orbit_weights"](33,coords)
     masses,_ = events["event_masses"](weights)
-    dropped = (18,6,3)
-    table = (root/"ch39-common-yukawa-events.tsv").read_text().splitlines()
-    assert any(line.split() == ["18","6","3","ref"] for line in table)
-    masses["ref"] -= weights[dropped]
+    if discarded is not None:
+        table = (root/"ch39-common-yukawa-events.tsv").read_text().splitlines()
+        assert any(line.split() == [*map(str,discarded),"ref"] for line in table)
+        masses["ref"] -= weights[discarded]
     ys = [Fraction(masses[n],masses["ref"]) for n in events["names"]]
     for n,z in zip(events["names"],ys):
         assert events["low"][n] < z < events["high"][n]
     state = [(arb(v)/coords[0])**2 for v in coords[1:]] + [shortest["q"](v) for v in ys]
-    time = arb("26.81676714125598")
+    time = arb(log_scale)
     for _ in range(128):
         state = shortest["reference"]["advance"](state,time/128,14)
     target = shortest["model"]["target"]
     values = [1/(r*u) for r,u in zip(shortest["ratios"],state)]
     deltas = [a+b for a,b in events["mixing"]["displacement"](27)]
-    errors = [abs(v-target(11431,time))+d for v,d in zip(values,deltas)]
-    assert all(e < arb("1.005e-7") for e in errors)
-    for other in (11430,11432):
+    errors = [abs(v-target(label,time))+d for v,d in zip(values,deltas)]
+    for other in (label-1,label+1):
         assert all(abs(v-target(other,time))-d > arb(2)**-21 for v,d in zip(values,deltas))
-    print("128-letter rotor, 33-port table, 11431 all-CKM residuals",
+    print("128-letter rotor, 33-port table,",label,"all-CKM residuals",
           *(e.upper().str(8) for e in errors))
+    return errors
 
 
 if __name__ == "__main__":
-    verify()
+    errors = gauge_match(word,11431,"26.81676714125598",(18,6,3))
+    assert all(e < arb("1.005e-7") for e in errors)
