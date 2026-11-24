@@ -17,9 +17,12 @@ def bisect(function,lo,hi):
         value=function(mid)
         if value<0:
             lo=mid
-        else:
-            assert value>0
+        elif value>0:
             hi=mid
+        elif hi-lo<arb("1e-20"):
+            break
+        else:
+            raise ArithmeticError("Root enclosure is too wide to resolve the midpoint sign")
     return lo.union(hi)
 
 
@@ -49,10 +52,13 @@ def pole_resolvent(vertices,lengths,tree_count,*, edge_filter=None):
     return green
 
 
-def parameters(*, include_graphs=False):
+primary_logs = ("24.3145558253697","26.71304007023748","26.81725683017028")
+
+
+def parameters(logs=primary_logs,*,include_graphs=False):
     ctx.prec=192
     data=run_path(str(root/"ch39-published-gauge-inputs.py"))
-    log_q=data["q"]("26.81725683017028")
+    log_q=data["q"](logs[2])
     shared=data["model"]["target"](11431,log_q)
     layers=graph["site_choices"]()
     chosen=[min((a for a in layer if a[1:3]==target),key=lambda a:a[3])
@@ -60,21 +66,20 @@ def parameters(*, include_graphs=False):
     x,_,common=graph["mass_solution"](chosen)
     unit=(2*x).exp()
     g=(shared/15+common/(48*arb.pi()**2))**(-arb(1)/2)
-    m3,m8=[(data["q"](s)-log_q).exp() for s in ("24.3145558253697","26.71304007023748")]
+    m3,m8=[(data["q"](s)-log_q).exp() for s in logs[:2]]
     d=(m8*m8-m3*m3).sqrt()
     b=((1-5*d.log())/21).exp()
     def a(h):
         return ((1+4*d.log()+h.log()+arb(15).log()/2)/20).exp()
     def mass_equation(h):
         return 15*a(h)**2-14*b*b-(d/h)**2
-    h=bisect(mass_equation,".74",".76")
+    h=bisect(mass_equation,".5","1.0")
     u=m3/(h*g)
     w=arb(28).sqrt()*b/g
     onsite=h*arb(15).sqrt()*a(h)
     vc,vr=1-21*a(h).log(),1-21*b.log()
     for v in (vc+4*d.log()+onsite.log(),(8*vc+6*vr+2*d.log()+8*onsite.log())/5):
         assert v.contains(0) and abs(v)<arb("1e-22")
-    assert arb(".55888662")<h*h<arb(".55888663")
     assert unit/64>m3*m3
     points=[p for p in product(range(30),repeat=3) if sum(y*y for y in p)==867]
     def orbit(p):
@@ -92,6 +97,7 @@ def parameters(*, include_graphs=False):
 
 def verify():
     g,u,w,m3,h,active=parameters()
+    assert arb(".55888662")<h*h<arb(".55888663")
     def limiting(energy):
         return 1+2*w*w*(active(energy)+2/(9*u*u))
     bound=bisect(limiting,".0001",".003").sqrt()

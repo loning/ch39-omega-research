@@ -10,8 +10,8 @@ root = Path(__file__).parent
 neutral = run_path(str(root/"ch39-shared-quartic-neutral.py"))
 
 
-def verify():
-    g,u,w,m3,h,active,unit,gc,gr = neutral["parameters"](include_graphs=True)
+def light_current(logs):
+    g,u,w,m3,h,active,unit,gc,gr = neutral["parameters"](logs,include_graphs=True)
     start = neutral["bisect"](lambda e:1/(2*w*w)+active(e)+4*g*g/(18*g*g*u*u-e),
                               ".0001",".003")
     c=18*u*u
@@ -19,7 +19,6 @@ def verify():
     alpha=-g*g*gc(start,unit)/(8*norm)
     beta=g*g*gr(start,unit)/(4*norm)
     family=-2*g*g/((c*g*g-start)*norm)
-    assert abs(abs(family)-arb(".2027318524"))<arb("1e-10")
 
     # The charged Higgsed towers also have their first eigenvalue above m3.
     b=w*g/arb(28).sqrt()
@@ -33,8 +32,7 @@ def verify():
     spectrum=run_path(str(root/"ch39-published-split-adjoint.py"))
     data=spectrum["data"]
     exact=lambda v:data["q"](v)
-    d_lower=((exact("26.71304007023748")-exact("24.3145558253697")).exp()**2-1).sqrt()*m3
-    assert d_lower>arb(".89730")
+    d_lower=((exact(logs[1])-exact(logs[0])).exp()**2-1).sqrt()*m3
     assert 1+(d_lower*d_lower/(h*h)+14*b*b)*gc(m3*m3,unit)<0
     assert 1+14*b*b*gr(m3*m3,unit)<0
 
@@ -57,6 +55,15 @@ def verify():
         total+=4*arb(higgs.numerator)/higgs.denominator*beta**2
         shifts.append(total*factor)
     scaled=[value/r for value,r in zip(shifts,(arb(24)/25,arb(16)/15,arb(1)))]
+    return start,scaled,(alpha,beta,family),shifts
+
+
+def verify():
+    _,scaled,(alpha,beta,family),shifts=light_current(neutral["primary_logs"])
+    assert abs(abs(family)-arb(".2027318524"))<arb("1e-10")
+    spectrum=run_path(str(root/"ch39-published-split-adjoint.py"))
+    data=spectrum["data"]
+    exact=data["q"]
     difference=(max(scaled)-min(scaled))/2
     assert arb("2.62164e-6") < difference < arb("2.62165e-6")
     # Add just this finite-window logarithm to the original trajectory.

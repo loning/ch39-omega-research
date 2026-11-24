@@ -26,10 +26,16 @@ def scalar_flow():
             "B":[[x+d for x,d in zip(row,extra,strict=True)] for row,extra in zip(baseline["B"],change,strict=True)]}
 
 
-def verify_ground(values, intervals, trial_index, scale, allowance, spread_rate):
+def verify_ground(values, intervals, trial_index, scale, allowance, spread_rate, *, logarithm=None):
     lower = upper = [v*v for v in values]
     exact_target = comp["model"]["target"]
     target = exact_target(11431,scale)
+    offsets = [arb(0)]*3
+    derivative_ranges = [arb(0)]*3
+    if logarithm is not None:
+        onset, end, offsets = logarithm
+        assert onset < end < scale
+        derivative_ranges = [arb(0).union(v/(end-onset)) for v in offsets]
     for index,(start,stop,n,flow) in enumerate(intervals):
         step = (stop-start)/n
         for i in range(n):
@@ -41,10 +47,12 @@ def verify_ground(values, intervals, trial_index, scale, allowance, spread_rate)
                 tr = [sum(lt[k:k+3]).union(sum(ut[k:k+3])) for k in (3,6,9)]
                 speeds = [-2/(loop*r)*(b+sum(p*z-d*y for p,z,d,y in zip(br,g,dr,tr,strict=True))/loop)
                           for r,b,br,dr in zip(ratios,flow["BETA"],flow["B"],flow["D"],strict=True)]
+                speeds = [v-d for v,d in zip(speeds,derivative_ranges,strict=True)]
                 assert max(abs(v) for v in speeds) < q(".091")
                 assert speeds[2]-speeds[0] > spread_rate
         if index == trial_index:
-            residuals = [abs((1/(r*a)).union(1/(r*b))-target) for r,a,b in zip(ratios,lower,upper)]
+            residuals = [abs((1/(r*a)).union(1/(r*b))-target-offset)
+                         for r,a,b,offset in zip(ratios,lower[:3],upper[:3],offsets,strict=True)]
             assert max(residuals)+q("1.3e-16") < allowance
             print("matching-scale residual bounds", *(v.upper().str(10) for v in residuals))
 
