@@ -138,10 +138,7 @@ class Enclosure:
                           (middle,right,active,depth+1,jet,center)])
 
 
-def verify():
-    ctx.prec = 128
-    accept_witness()
-    enclosure = Enclosure()
+def exclude_other_orbits(enclosure):
     assert all(not words["hits"](d) for d in range(16))
     counts = (4,39,158,750,3807,19485)
     with TemporaryDirectory() as temp:
@@ -166,6 +163,13 @@ def verify():
                     unresolved += len(labels)
                     enclosure.exclude(coord,labels)
             print("depth",d,"in-box absolute tuples",count,"fine exclusions",unresolved,flush=True)
+
+
+def verify():
+    ctx.prec = 128
+    accept_witness()
+    enclosure = Enclosure()
+    exclude_other_orbits(enclosure)
     center = model["yukawa_centers"][2]
     y_ref = 2*(center*q(".9936504245")).log()
     jet = enclosure.central_jet(match_coord,y_ref)
