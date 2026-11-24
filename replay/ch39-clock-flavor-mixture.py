@@ -3,21 +3,20 @@ from itertools import islice
 from pathlib import Path
 from runpy import run_path
 
-from flint import acb, arb, arb_series
+from flint import acb, acb_mat, arb, arb_series
 
 clock = run_path(str(Path(__file__).with_name("ch39-static-pulse-clock.py")))
 flavor = run_path(str(Path(__file__).with_name("ch39-fixed-local-flavor.py")))
 pulses = clock["pulses"]
 
 
-def flavor_observables(height, coefficients):
-    matrix = flavor["mixing"](flavor["native"]["plane_response"](height), coefficients)
+def direct_observables(matrix):
     j = (matrix[0, 0]*matrix[1, 0].conjugate()*matrix[1, 1]*matrix[0, 1].conjugate()).imag
     return [abs(matrix[i, k])**2 for i, k in ((0, 1), (1, 2), (0, 2), (1, 0))]+[j]
 
 
 def readouts(observables):
-    us, cb, ub, cd, j = observables
+    us, cb, ub, cd, j = observables[:5]
     s, t, u = (us/(1-ub)).sqrt(), (cb/(1-ub)).sqrt(), ub.sqrt()
     q = (cd-s*s*(1-t*t)-(1-s*s)*t*t*ub)/2
     phase = acb((1-ub)*q, j).arg()
@@ -25,7 +24,7 @@ def readouts(observables):
 
 
 def phase_radius_squared(observables):
-    us, cb, ub, cd, j = observables
+    us, cb, ub, cd, j = observables[:5]
     c2 = 1-ub
     s2, t2 = us/c2, cb/c2
     q = (cd-s2*(1-t2)-(1-s2)*t2*ub)/2
@@ -35,11 +34,16 @@ def phase_radius_squared(observables):
 def verify():
     data = {}
     coefficients = [arb(n)/2048 for n in flavor["codes"]]
+    corrected = [arb(v)/2048 for v in (1487,5202,5069,6322)]
     for n, zero in enumerate(acb.zeta_zeros(10815, 1278), 10815):
         stream = pulses["pulse_records"](pulses["generator"](zero.imag))
         p = next(islice(stream, 6, 7))[0]
         weight = 1/(arb(1)/4+zero.imag**2)
-        data[n] = (p, weight, flavor_observables(zero.imag, coefficients))
+        response = flavor["native"]["plane_response"](zero.imag)
+        native = [response[0,0].real, response[1,1].real, response[0,1].real, response[0,1].imag]
+        obs = direct_observables(flavor["mixing"](response,coefficients)) + native
+        obs += direct_observables(flavor["mixing"](response,corrected))
+        data[n] = (p, weight, obs)
 
     p0, w0, center = data.pop(11431)
     total_weight = w0+sum(w for _, w, _ in data.values())
@@ -127,6 +131,10 @@ def verify():
     critical = 1/inverse
     assert arb(".0838677") < critical < arb(".0838683")
     print("critical coupling", critical.str(10))
+    def mean_response(offset):
+        a,b,c,d = average(offset)[5:9]
+        return acb_mat([[a, acb(c,d)], [acb(c,-d), b]])
+
     for value in (arb(0), arb(1)/32, arb(1)):
         offset = isolate(1/value) if value > 0 else arb(0)
         observations = average(offset)
@@ -137,6 +145,52 @@ def verify():
             assert arb(".9993900") < squared < arb(".9993902")
         print("coupling", value.str(5), "readouts", *(z.str(12) for z in readouts(observations)),
               "squared phase radius", squared.str(10))
+        print("compressed action deviations",
+              *(v.str(10) for v in flavor["errors"](flavor["mixing"](mean_response(offset),coefficients))))
+    response_ends = [mean_response(arb(0)), mean_response(isolate(1))]
+    neighbors = [[arb(v) for v in coefficients]]
+    for index in range(4):
+        for step in (-1,1):
+            trial = coefficients.copy()
+            trial[index] += arb(step)/2048
+            neighbors.append(trial)
+    for trial in neighbors:
+        if trial == corrected:
+            continue
+        assert any(any(e > r for e,r in zip(flavor["errors"](flavor["mixing"](response,trial)),radii))
+                   for response in response_ends)
+
+    for obs in [center]+[row[2] for row in data.values()]:
+        a,b,c,d = obs[5:9]
+        norm = (a*a+b*b+2*(c*c+d*d)).sqrt()
+        assert corrected[0]*norm+sum(corrected[1:]) < 16
+    # A centered Duhamel expansion cancels the linear term in the ensemble.
+    tbox = arb(0).union(end)
+    _, first_derivative, difference = geometry(tbox)
+    variance = arb(0)
+    for d,w,offsets in competitors:
+        ratio = w*(1-d*difference/first_derivative)*(end/(d-end))**2
+        a,b,c,im = offsets[5:9]
+        variance += ratio*(a*a+b*b+2*(c*c+im*im))
+    variance *= corrected[0]**2
+    error = arb(0, (2*variance/(2**16)).upper())
+    print("shell generator variance upper", variance.upper().str(8),
+          "diamond error per full 65536-step operation",error.rad().str(8))
+    regions = [(arb(0), end)]
+    while regions:
+        lo, hi = regions.pop()
+        w = flavor["mixing"](mean_response(lo.union(hi)), corrected)
+        probs = [abs(w[i,j])**2+error for i,j in ((0,1),(1,2),(0,2),(1,0))]
+        j = (w[0,0]*w[1,0].conjugate()*w[1,1]*w[0,1].conjugate()).imag
+        vals = readouts(probs+[j+2*error])
+        single = readouts(average(lo.union(hi))[9:])
+        if all(abs(v-c)<r for result in (single,vals) for v,c,r in zip(result,endpoints,radii)):
+            continue
+        assert hi-lo > arb("1e-13")
+        mid = ((lo+hi)/2).mid()
+        regions.extend(((lo,mid),(mid,hi)))
+    print("Unique one-unit calibration 1487,5202,5069,6322 covers all nonnegative couplings",
+          "for one unresolved readout and for 65536 independent short interactions.")
 
 
 if __name__ == "__main__":
