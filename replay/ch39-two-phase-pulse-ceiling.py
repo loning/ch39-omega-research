@@ -97,6 +97,8 @@ def verify():
         bound = amplitude_ceiling(coeffs, error, 512)
         print("port score ceiling", bound.upper().str(10), flush=True)
         assert bound < limit
+        if row==38:
+            assert bound < arb(".007300684")
     return limit
 
 
