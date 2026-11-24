@@ -15,21 +15,25 @@ norm = lambda v: arb(dot(v,v)).sqrt()
 second_axis = shell["cross"](p,n)
 basis = acb_mat([[x/norm(n), y/norm(second_axis)] for x,y in zip(n,second_axis)])
 columns = basis.transpose()*acb_mat([[a/norm(n), b/norm(m)] for a,b in zip(n,m)])
+inside = schur["inside"]
+origin = schur["origin"]
+portals = (schur["first"], schur["second"])
+source = acb_mat([[int(i==j) for j in portals] for i in inside])
+
+
+def plane_response(height):
+    matrix = geo["matrix"](0, geo["phases"](height))
+    block = acb_mat([[matrix[i,j] for j in inside] for i in inside])
+    internal = block.solve(source)
+    small = acb_mat([[-matrix[origin,i]*internal[inside.index(i),k]*matrix[j,origin]
+                      for k,j in enumerate(portals)] for i in portals])
+    return columns*small*columns.transpose()
 
 
 def enclose_native_axes():
-    inside = schur["inside"]
-    origin = schur["origin"]
-    portals = (schur["first"], schur["second"])
-    source = acb_mat([[int(i==j) for j in portals] for i in inside])
     groups = {}
     for zero in acb.zeta_zeros(10815,1278):
-        matrix = geo["matrix"](0, geo["phases"](zero.imag))
-        block = acb_mat([[matrix[i,j] for j in inside] for i in inside])
-        internal = block.solve(source)
-        small = acb_mat([[-matrix[origin,i]*internal[inside.index(i),k]*matrix[j,origin]
-                          for k,j in enumerate(portals)] for i in portals])
-        t = columns*small*columns.transpose()
+        t = plane_response(zero.imag)
         diag = (t[0,0]-t[1,1]).real/2
         radius = (diag**2 + abs(t[0,1])**2).sqrt()
         assert radius > 0
