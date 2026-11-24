@@ -12,12 +12,12 @@ MODEL = BOSON["MODEL"]
 q, x = symbols("q x")
 
 
-def charged_scalar_factors():
+def charged_scalar_factors(current=(5, 3, -8)):
     """Factor the exact signed characteristic product in units of lambda."""
     tables = [MODEL["mass_blocks"](r) for r in (0, 1, -1)]
     cache, weights = {}, defaultdict(F)
     for label, (base, metric) in tables[0].items():
-        weight = sum(w*c for w, c in zip(MODEL["weight_indices"](label[1]), (5, 3, -8)))
+        weight = sum(w*c for w, c in zip(MODEL["weight_indices"](label[1]), current))
         if not weight:
             continue
         pos, neg = [table[label][0] for table in tables[1:]]
@@ -44,8 +44,8 @@ def charged_scalar_factors():
             weights[factor] += weight*multiplicity
     # Discard massless modes, then remove the old weak triplet and color octet.
     weights.pop(x)
-    weights[x-q] -= 6
-    weights[x-q-1] += 24
+    weights[x-q] -= 2*current[1]
+    weights[x-q-1] -= 3*current[2]
     return {p: w for p, w in weights.items() if w}
 
 
