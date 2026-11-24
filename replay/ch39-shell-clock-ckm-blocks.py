@@ -27,17 +27,16 @@ fixed_lines = tuple(cross(radial, axis) for axis in axes)
 axis_cos_sq = arb(dot(*axes)**2) / (dot(axes[0], axes[0])*dot(axes[1], axes[1]))
 
 
-def target_box():
-    s, t, u = (v + arb(0, sine_radius.upper()) for v in centers[:3])
+def target_box(sine_halfwidth=sine_radius, phase_halfwidth=phase_radius):
+    s, t, u = (v + arb(0, sine_halfwidth.upper()) for v in centers[:3])
     a, b, c = ((1-v*v).sqrt() for v in (s, t, u))
-    d = cis(centers[3] + arb(0, phase_radius.upper()))
+    d = cis(centers[3] + arb(0, phase_halfwidth.upper()))
     return ((a*c, s*c, u*d.conjugate()),
             (-s*b-a*t*u*d, a*b-s*t*u*d, t*c),
             (s*t-a*b*u*d, -a*t-s*b*u*d, b*c))
 
 
-def exclude_three():
-    v = target_box()
+def rephasing_equations(v):
     # The first two output modulus constraints have only three interference terms.
     offsets = []
     coeffs = []
@@ -45,7 +44,12 @@ def exclude_three():
         scaled = [acb(entry)*weight for entry, weight in zip(row, radial)]
         offsets.append(sum(abs(z)**2 for z in scaled) - radial[i]**2)
         coeffs.append([2*scaled[a]*scaled[b].conjugate() for a, b in ((0,1), (0,2), (1,2))])
+    return offsets, coeffs
 
+
+def exclude_three():
+    v = target_box()
+    offsets, coeffs = rephasing_equations(v)
     pending = [(0, 0, 0)]
     boxes = 0
     depth = 0
