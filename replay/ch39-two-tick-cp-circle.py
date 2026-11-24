@@ -119,7 +119,7 @@ def verify(response):
     return inverse
 
 
-def exclude_unit_gain(inverse):
+def exclude_gain_window(inverse, gain_window):
     centers = shell["centers"]
     widths = [shell["sine_radius"]]*3 + [shell["phase_radius"]]
     domains = [fit["around"](list(map(arb, seed)), arb(".045")) for seed in fit["seeds"]]
@@ -136,7 +136,6 @@ def exclude_unit_gain(inverse):
             assert level < 17
             pending.extend((level+1, 2*i+a, 2*j+b) for a in (0,1) for b in (0,1))
 
-    gain_window = arb("1 +/- .05")
     stack = [(list(centers), widths, 0)]
     accepted = 0
     while stack:
@@ -161,8 +160,8 @@ def exclude_unit_gain(inverse):
             child = center.copy()
             child[axis] += sign*narrow[axis]
             stack.append((child, narrow, level+1))
-    print("Physical angle/phase box:", accepted, "verified tiles; gain 0.95 to 1.05 excluded for all logarithms.")
+    print("Physical angle/phase box:", accepted, "verified tiles; all logarithms excluded for", gain_window.str(5))
 
 
 if __name__ == "__main__":
-    exclude_unit_gain(verify(two_ticks["verify"]()))
+    exclude_gain_window(verify(two_ticks["verify"]()), arb("1 +/- .05"))
