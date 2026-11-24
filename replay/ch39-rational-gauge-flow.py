@@ -22,7 +22,7 @@ GAUGE = list(map(Q,(".467453",".63811","1.0583")))
 YUKAWA = list(map(Q,".00000615 .00311 .8616 .0000135 .000268 .01401 .0000028227 .00059465 .010101".split()))
 
 
-def taylor(initial, order, running, inverse_loop):
+def taylor(initial, order, running, inverse_loop, *, opposite_trace=None):
     # A polynomial vector field in u_i=g_i^2 and y_a=(Yukawa_a)^2.
     coeff = [initial]
     gauge_squares = []
@@ -39,6 +39,8 @@ def taylor(initial, order, running, inverse_loop):
             gy = sum(c*x for c,x in zip(running["C"][i],u))
             for a in range(3):
                 mix = y[3*(1-i)+a] if i < 2 else 0
+                if i < 2 and opposite_trace is not None:
+                    mix = traces[1-i] if opposite_trace else 0
                 matter_rates.append((3*(y[3*i+a]-mix)+2*(total-gy))*inverse_loop)
         rates.append(gauge_rates+matter_rates)
         gauge_squares.append([sum(coeff[j][i]*coeff[k-j][i] for j in range(k+1)) for i in range(3)])
