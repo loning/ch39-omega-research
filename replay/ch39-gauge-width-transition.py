@@ -56,7 +56,7 @@ def widened_witness():
     def grid_score(height):
         return hardy["weight"](height)/(1+abs(finite["finite_value"](height))/256)
     old_grid = arb(195923358475422178854846)/grid
-    for numerator in [(earlier*grid).floor(),(earlier*grid).ceil()]:
+    for numerator in [(earlier*grid).floor(),(earlier*grid).ceil(),(earlier*grid).ceil()+1]:
         x = numerator/grid
         retiming = ((earlier**2+offset)/(x**2+offset)).log()/2
         assert abs(retiming)<q("1e-22")
