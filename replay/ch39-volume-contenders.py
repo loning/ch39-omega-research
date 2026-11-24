@@ -136,12 +136,14 @@ def widths(target, data, top, tolerance=0):
     return [((density*lo).lower(), (density*(latest-earliest)).upper()) for density in densities]
 
 
-def verify(tolerance=0):
-    ctx.prec = 112
+def input_bounds():
     gauge_lo = [1/(c*q("1.001"))**2 for c in gauge["centers"]]
     gauge_hi = [1/(c*q(".999"))**2 for c in gauge["centers"]]
     logs = [2*(c*q(".99").union(q("1.01"))).log() for c in gauge["yukawa_centers"]]
-    data = prepare(gauge_lo, gauge_hi, logs)
+    return gauge_lo, gauge_hi, logs
+
+
+def zero_targets(tolerance):
     fixed = gauge["fixed"]
     common = (fixed["geo"]["BOOK_PLANCK"]/1000)**2 * 3*arb(5).sqrt()/(4*arb.pi())*(-2*anchor).exp()
     offset = q(fixed["OFFSET"])
@@ -156,6 +158,14 @@ def verify(tolerance=0):
     assert len(zeros) == last-first+1 and all(z.real == q("1/2") for z in zeros)
     targets = {n:(common/(z.imag**2+offset),base["spectral"]["weight"](z.imag))
                for n,z in enumerate(zeros, first)}
+    return targets, zeros[11737-first].imag
+
+
+def verify(tolerance=0):
+    ctx.prec = 112
+    gauge_lo, gauge_hi, logs = input_bounds()
+    data = prepare(gauge_lo, gauge_hi, logs)
+    targets, height = zero_targets(tolerance)
     y0 = 2*(gauge["yukawa_centers"][2]*q(".99")).log()
     y1 = 2*(gauge["yukawa_centers"][2]*q("1.01")).log()
     measures = ("log Yukawa", "linear Yukawa")
@@ -196,7 +206,6 @@ def verify(tolerance=0):
             assert lo > q("3.07870e-10") and rival < q("3.07535e-10")
         print(protocol, measure, "11737 score", lo.str(9), hi.str(9),
               "largest rival upper bound", rival.str(9), "relative advantage >", margin.lower().str(9))
-    height = zeros[11737-first].imag
     curvature = 1 + (1+(height/312)**2).sqrt()
     assert q("11346.10207491353") < height < q("11346.10207491355")
     assert q("37.37945839566") < curvature < q("37.37945839567")
