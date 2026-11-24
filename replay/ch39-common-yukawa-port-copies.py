@@ -17,8 +17,11 @@ low = {name:(c*Q(".99"))**2 for name,c in centers.items()}
 high = {name:(c*Q("1.01"))**2 for name,c in centers.items()}
 
 
-def orbit_weights(copies):
-    powers = [[v**(2*k) for k in range(copies+1)] for v in model["match_coord"]]
+def orbit_weights(copies, coordinates=None):
+    if coordinates is None:
+        coordinates = model["match_coord"]
+        assert sum(v*v for v in coordinates) == 5**21
+    powers = [[v**(2*k) for k in range(copies+1)] for v in coordinates]
     fac = [factorial(k) for k in range(copies+1)]
     weights = defaultdict(int)
     for i in range(copies+1):
@@ -28,7 +31,7 @@ def orbit_weights(copies):
                 mult = fac[copies]//(fac[scalar]*fac[i]*fac[j]*fac[k])
                 key = tuple(sorted((i,j,k),reverse=True))
                 weights[key] += mult*powers[0][scalar]*powers[1][i]*powers[2][j]*powers[3][k]
-    assert sum(weights.values()) == 5**(21*copies)
+    assert sum(weights.values()) == sum(v*v for v in coordinates)**copies
     return weights
 
 
