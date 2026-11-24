@@ -43,9 +43,11 @@ def clock_window():
     return clock_windows((7,))[7]
 
 
-def pulse_expectations(rows, positive_modes, length=7):
+def pulse_expectations(rows, positive_modes, length=7, *, strength=1):
     # Each spectral weight is relative to the 1/625 uniform-mode weight.
     assert 624 in sum(weight for _, weight in positive_modes)
+    assert strength > 0
+    inverse_contact = arb(625)/strength
     peak = max(rows,key=lambda row: float(row[1].mid()))
     second = max(p.upper() for n,p,w,obs in rows if n != peak[0])
     assert peak[1]>second
@@ -84,9 +86,9 @@ def pulse_expectations(rows, positive_modes, length=7):
                         differences[k] += (ground+higher)*(x-peak[3][k])
         if full:
             norm = low_norm+high_norm
-            return (1/(625+high_trace), high_norm/norm, peak_norm/norm,
+            return (1/(inverse_contact+high_trace), high_norm/norm, peak_norm/norm,
                     [base+dv/norm for base,dv in zip(peak[3], differences)])
-        return (low_trace+high_trace+625)*t
+        return (low_trace+high_trace+inverse_contact)*t
 
     lo,hi = arb(0), ((peak[1]-second)/2).mid()
     assert trace(hi)>0

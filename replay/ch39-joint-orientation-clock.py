@@ -80,6 +80,19 @@ def thermal_bound(rows):
     print("joint clock gap >", gap.lower().str(8), "Gibbs excited weight <", excited_weight.upper().str(8))
 
 
+def independent_copy_rows(rows):
+    # A separate fair orientation in each of two copies. The mixed signs have
+    # identical scores, so their spectral weights add in the secular equation.
+    paired = []
+    for plus,minus in zip(rows[::2],rows[1::2],strict=True):
+        n,forward,weight,pos = plus
+        _,backward,_,neg = minus
+        both = [(x+y)/2 for x,y in zip(pos,neg,strict=True)]
+        paired.extend(((n,forward,weight/2,pos),(-n,backward,weight/2,neg),
+                       (n+20000,(forward+backward)/2,weight,both)))
+    return paired
+
+
 def verify():
     rows = paired_scores()
     forward = max((row for row in rows if row[0]>0), key=lambda r:float(r[1].mid()))
@@ -91,15 +104,7 @@ def verify():
     modes = radial["local"]["graph_spectrum"]()
     p, r, error = ground_readout(rows, modes)
     assert p>arb(".999941") and r<arb("8.711e-6") and error<arb("1.805e-7")
-    # A separate fair orientation in each of two copies. The mixed signs have
-    # identical scores, so their spectral weights add in the secular equation.
-    paired = []
-    for plus,minus in zip(rows[::2],rows[1::2],strict=True):
-        n,forward,weight,pos = plus
-        _,backward,_,neg = minus
-        both = [(x+y)/2 for x,y in zip(pos,neg,strict=True)]
-        paired.extend(((n,forward,weight/2,pos),(-n,backward,weight/2,neg),
-                       (n+20000,(forward+backward)/2,weight,both)))
+    paired = independent_copy_rows(rows)
     p, r, error = ground_readout(paired, modes)
     assert p>arb(".999983") and r<arb("2.631e-6") and error<arb("1.216e-7")
     thermal_bound(paired)
