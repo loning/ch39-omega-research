@@ -41,6 +41,8 @@ class FlowBounds:
     rates: list
     determinant: arb
     residual_norms: list
+    low_box: list
+    initial_offsets: list
 
 
 def variations(low, logs):
@@ -100,10 +102,11 @@ def prepare(gauge_lo, gauge_hi, logs):
               center[i,0]+residual[i]+(gauge_lo[i]-x_ref[i])) for i in range(3)]
     return FlowBounds(faces, [remainder[i,top] for i in range(3)], list(normalized),
                       list(slope), rates, m.det(),
-                      [sum(abs(pre[i,j])*ratios[j] for j in range(3)) for i in range(3)])
+                      [sum(abs(pre[i,j])*ratios[j] for j in range(3)) for i in range(3)],
+                      low, [x_ref[i]-center[i,0]-residual[i] for i in range(3)])
 
 
-def widths(target, data, top, tolerance=0):
+def widths(target, data, top, tolerance=0, gauge_prior=None):
     # High and low faces of each input coordinate bound its first and last crossing.
     both = [[], []]
     for i in range(3):
@@ -128,12 +131,45 @@ def widths(target, data, top, tolerance=0):
     earliest, latest = max(x.lower() for x in early), min(x.upper() for x in late)
     if latest <= earliest:
         return [(arb(0), arb(0))]*2
-    time = earliest.union(latest)
-    common = target*(-2*time).exp()
-    speeds = [2*common + v/r for v,r in zip(data.rates,ratios)]
-    assert all(speed > 0 for speed in speeds)
-    densities = [sum(speeds)/data.determinant, 1/data.determinant]
-    return [((density*lo).lower(), (density*(latest-earliest)).upper()) for density in densities]
+    def densities(time):
+        common = target*(-2*time).exp()
+        speeds = [2*common + v/r for v,r in zip(data.rates,ratios)]
+        assert all(speed > 0 for speed in speeds)
+        factor = 1/data.determinant
+        if gauge_prior is not None:
+            initial = []
+            for i, box in enumerate(data.low_box):
+                x = (data.initial_offsets[i] + data.target_ratios[i]*common
+                     - data.transformed_rates[i]*time - data.top_sensitivity[i]*top
+                     + arb(0,tolerance*data.residual_norms[i]))
+                if not box.overlaps(x):
+                    return None
+                initial.append(box.intersection(x))
+            factor *= gauge_prior(initial)
+            assert factor > 0
+        return (sum(speeds)*factor, factor)
+
+    def integral(left, right, pieces, lower):
+        if right <= left:
+            return [arb(0),arb(0)]
+        length = (right-left)/pieces
+        total = [arb(0),arb(0)]
+        for j in range(pieces):
+            slab = (left+j*length).union(left+(j+1)*length)
+            vals = densities(slab)
+            if vals is None:
+                assert not lower
+                continue
+            for k,value in enumerate(vals):
+                total[k] += length*(value.lower() if lower else value.upper())
+        return [(v.lower() if lower else v.upper()) for v in total]
+
+    if gauge_prior is None:
+        vals = densities(earliest.union(latest))
+        return [((v*lo).lower(), (v*(latest-earliest)).upper()) for v in vals]
+    minimum = integral(max(x.upper() for x in early), min(x.lower() for x in late), 16, True)
+    maximum = integral(earliest, latest, 16, False)
+    return list(zip(minimum,maximum))
 
 
 def input_bounds():

@@ -7,14 +7,14 @@ from flint import acb, arb, ctx
 volume = run_path(str(Path(__file__).with_name("ch39-volume-contenders.py")))
 
 
-def verify(weight_modulus_error=0):
+def verify(weight_modulus_error=0, gauge_prior=None):
     ctx.prec = 112
     tolerance = arb(2)**-21
     targets, _ = volume["zero_targets"](tolerance)
     x_low, x_high, logs = volume["input_bounds"]()
     top_low, top_high = logs[2].lower(), logs[2].upper()
     winner = 11737
-    relative_gap = volume["q"](".0002" if weight_modulus_error else ".0003")
+    relative_gap = volume["q"](".0002" if weight_modulus_error or gauge_prior else ".0003")
     assert min(targets) == 10815
     if weight_modulus_error:
         assert acb.zeta_zero(min(targets)).imag > 10000
@@ -38,7 +38,7 @@ def verify(weight_modulus_error=0):
             for n in candidates:
                 target, weight = targets[n]
                 scores[n] = [(weight*lo,weight*hi) for lo,hi in
-                             volume["widths"](target,data,top,tolerance)]
+                             volume["widths"](target,data,top,tolerance,gauge_prior)]
             rivals = []
             for mode in range(2):
                 lo = scores[winner][mode][0].lower()
