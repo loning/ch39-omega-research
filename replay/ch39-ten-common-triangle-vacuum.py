@@ -84,6 +84,21 @@ def setup(h):
     return degree_bound, gnorm, vnorm, squared, w
 
 
+def light(K, op, vnorm, squared, w):
+    trial = vnorm/K
+    # ||D^T(sin(Dt)-Dt)|| <= op * ||t||^3 / 2, including pole triangles.
+    error = (40*trial+K*op*trial**3/2)/(arb(".999")*K-40)
+    S = squared/K**2
+    ten = run_path(str(Path(__file__).with_name("ch39-minimal-shifted-ten.py")))
+    # After site rephasing v/K has co-closed weighted representative
+    # of energy S. Temple's denominator exceeds one.
+    assert min(z.lower() for z in ten["crossing"]["shell_spectra"]((0,))[0])-2*trial-S > 1
+    trial_low = S/19*(1-S/(12*w))-S**2/19
+    actual = (trial_low.sqrt()-error).union((S/19).sqrt()+error)
+    assert actual > 0
+    return actual**2,trial+error
+
+
 def verify():
     ctx.prec=256
     h=acb.zeta_zero(11431).imag
@@ -107,21 +122,8 @@ def verify():
     # ||f'||<=300 and the positive divided differences of f' are <=11
     # for f(m)=m^2 log m. Negative contributions cost <=8/e per block.
     assert 10*(600+22)/(16*arb.pi()**2) < 40
-    def light(K):
-        trial = vnorm/K
-        # ||D^T(sin(Dt)-Dt)|| <= op * ||t||^3 / 2, including pole triangles.
-        error = (40*trial+K*op*trial**3/2)/(arb(".999")*K-40)
-        assert trial+error < radius
-        S = squared/K**2
-        # After site rephasing v/K has co-closed weighted representative
-        # of energy S. Temple's denominator exceeds one.
-        assert min(z.lower() for z in ten["crossing"]["shell_spectra"]((0,))[0])-2*trial-S > 1
-        trial_low = S/19*(1-S/(12*w))-S**2/19
-        actual = (trial_low.sqrt()-error).union((S/19).sqrt()+error)
-        assert actual > 0
-        return actual**2,trial+error
-    at_low, norm_bound = light(lower)
-    at_high, _ = light(upper)
+    at_low, norm_bound = light(lower,op,vnorm,squared,w)
+    at_high, _ = light(upper,op,vnorm,squared,w)
     box = arb("5.8317e-19").union(arb("5.8319e-19"))
     assert at_low > box and at_high < box
     # The unique global vacuum is continuous in K. Select the segment
