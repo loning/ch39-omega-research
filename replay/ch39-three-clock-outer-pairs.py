@@ -43,9 +43,7 @@ def rank_obstruction(delta):
     positive_on_ray(det2(h))
 
 
-def completion(delta, distances, cutoff):
-    n = delta.nrows()
-    offset = fmpq(1, 10**10) if cutoff < 544 else fmpq(0)
+def projected_outer_gram(delta, offset):
     signs = (1, -1, -1, 1, 1, -1)
     gram = submatrix(delta, outer, outer)
     for i in range(6):
@@ -58,6 +56,13 @@ def completion(delta, distances, cutoff):
         gram[i, i ^ 1] = -sum(gram[i, j] for j in other if signs[i] != signs[j])
     assert gram == gram.transpose() and gram.rank() == 4
     assert all(submatrix(gram, range(k), range(k)).det() > 0 for k in range(1, 5))
+    return gram
+
+
+def completion(delta, distances, cutoff):
+    n = delta.nrows()
+    offset = fmpq(1, 10**10) if cutoff < 544 else fmpq(0)
+    gram = projected_outer_gram(delta, offset)
     w = fmpq_mat(n, n)
     for k, i in enumerate(outer):
         for l, j in enumerate(outer):
