@@ -9,6 +9,8 @@ from flint import arb_mat
 
 model = run_path(str(Path(__file__).with_name("ch39-two-dirac-current-witness.py")))
 shape, mat, poles, q = (model[k] for k in ("shape", "mat", "poles", "q"))
+mass46 = (".28549878",".28532298",".28456476")
+mass60 = ((".23280505",".29949121"),(".23239576",".29973955"),(".23061972",".30081799"))
 
 
 def colour_weights(a, b, c):
@@ -60,7 +62,7 @@ def maximal_pairs(pairs):
     return frontier
 
 
-def exclude(data, graphs, cap_mass, twice_budget, tolerance, angles):
+def exclude(data, graphs, cap_mass, twice_budget, tolerance, angles, hypercharge=None):
     u, v = graphs
     low = data[0][3]-tolerance*data[0][2]
     high = data[1][3]+tolerance*data[1][2]
@@ -79,6 +81,11 @@ def exclude(data, graphs, cap_mass, twice_budget, tolerance, angles):
     scale = 10000
     xmax = 48
     scores = {}
+    if hypercharge:
+        e, triplet, penalty, log_budget = hypercharge
+        fraction_at_q = model["dirac"](x1,e)[0]/fmax
+        max_log = -triplet.log()
+        assert 0 < fraction_at_q < 1 and penalty*log_budget < 1
     for angle in angles:
         ratio = angle/cap
         threshold = (1-lam)*low-angle*high
@@ -94,7 +101,12 @@ def exclude(data, graphs, cap_mass, twice_budget, tolerance, angles):
             assert 2*quadratic*xmax+abs(lin) < 0
             for charge in range(-xmax,xmax+1):
                 z = (quadratic*charge+lin)*charge+const
-                upper = max(0,int((coeff*z).upper().ceil().unique_fmpz()))
+                score = coeff*z
+                if hypercharge:
+                    charge_y = q(d)/6+q(r)/2
+                    score = max((fraction_at_q*score).upper(),
+                                (score-scale*penalty*charge_y**2*max_log).upper())/(1-penalty*log_budget)
+                upper = max(0,int(score.upper().ceil().unique_fmpz()))
                 scores.setdefault((d,r,charge),[]).append(upper)
     # Every irrep has one shared X. Round upward before grouping its weights.
     by_cost = {}
@@ -170,14 +182,13 @@ def fit_spectra(case, total, graphs, packets, cap_mass):
         return (gain-gap)/target, grad
 
     if total==46:
-        ra = q((".28549878",".28532298",".28456476")[case])
+        ra = q(mass46[case])
         assert 0 < ra < cap_mass
         errors = [equation(row,ra,cap_mass)[0]*10**9 for row in fixed]
         print("index 46 residuals ppb", *(v.str(8) for v in errors),flush=True)
         assert all(abs(v) < q("18.1") for v in errors)
         return
-    centres = ((".23280505",".29949121"),(".23239576",".29973955"),(".23061972",".30081799"))
-    centre = [q(v) for v in centres[case]]
+    centre = [q(v) for v in mass60[case]]
     values = [equation(row,*centre) for row in fixed]
     midpoint = arb_mat([g for _,g in values]).inv()
     pre = arb_mat([[midpoint[i,j].mid() for j in range(2)] for i in range(2)])
@@ -211,6 +222,8 @@ def verify():
             packets.append(model["packet"](log_x,e,z,c/rho,eta/rho,masses[0],1/rho,k,h))
         cap_mass = e/masses[0]**2
         exclude(packets,graphs,cap_mass,91,q("2e-8"),(q(".282"),q(".262")))
+        exclude(packets,graphs,cap_mass,92,q("2e-8"),(q(".278"),q(".282")),
+                hypercharge=(e,masses[0],q(".0213"),q(36)))
         for total in (46,60):
             fit_spectra(case,total,graphs,packets,cap_mass)
 
