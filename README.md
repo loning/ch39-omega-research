@@ -4,6 +4,37 @@
 
 ## 统一问题研究图谱
 
+截至 2026 年 11 月 26 日，书中这组四问的现行节号为 §33.9，源码和问题编号沿用 ch39。下图按每个问题的交付物计数。[书中四问](https://github.com/the-omega-institute/trureturing-books/blob/4b22ccf39704ab124ea3ae71a13faa6c9a2e8f04/books/quantum-geometry/zh/ch39-s11-af-gut-arc-field-grand-unification.md#prob-ch39-af-gut-threshold-and-proton-stability)
+
+```text
+共同目标  从同一极小圆弧主联络，无事后拟合地推出四组物理量
+|
++-- 1  三力交汇、希格斯质量和电弱尺度
+|   +-- 在给定重场、二进质量单位和尖阈值后，11431 给出两圈交点
+|   `-- 待解  从原配分函数定阈值，并同时算出希格斯质量和电弱尺度
+|
++-- 2  恰好三代、正确手征
+|   +-- 在十九点壳的两步质量谱上，1238 枚零点中有 11 枚可用同一分界
+|   |   让五种荷各留下三个低模。选定单侧伴侣边界后可使它们成为手征零模
+|   `-- 待解  由主联络选出该边界，并完成相互作用的四维格点构造
+|
++-- 1 + 2  同一算子能同时给出三代和交点吗？
+|   `-- 用上述 11 枚各自的十六个重 Dirac 对/荷重算，两种重 Higgs
+|       计数均在指定能窗排除一圈尖阈值交点，允许任意共同质量单位
+|
++-- 3  粒子质量、代际混合和质子选择定则
+|   +-- 指定的局部味模型有可检验的质量比上界，紫外保留重子数模三可禁 QQQL
+|   `-- 待解  同一折叠算子推出质量、混合和紫外选择定则
+|
+`-- 4  引力与暗能量
+    +-- 给定 Regge 作用后，长波二次理论给出两种自旋 2 螺旋度
+    `-- 待解  从主联络推出引力作用、牛顿常数和宇宙学常数
+```
+
+本轮交叉检验使用正零点 10855 至 12092，强耦合区间 [0.117,0.119]，能窗为 10¹³ 至 10¹⁷ GeV，要求所有新质量高于 Z 玻色子质量。最宽分界来自 11661，约为 (7.495715,10.599350)。[区间证书与轻重场计数](replay/Ω复算说明.md#同一两步质量谱的三代分界与规范交点)
+
+上游的两项进展给算术侧增加了约束。真实零点的调和权重配对矩满足最终界 P₄/P₂² ≤ 4096 log T；在指定倒高度环带，归一相位和的模有显式偏离 1 的下界。两者沿用上游局部 RH 接口。应用到球壳还需证明该加权相位和控制具体的质量或耦合可观测量。[书库 #1338](https://github.com/the-omega-institute/trureturing-books/pull/1338) · [trureturing #34283](https://github.com/the-omega-institute/trureturing/pull/34283)
+
 **原书列出四项开放问题。四项都有可定位的子结果，按原书要求从同一主联络、无事后拟合地完整推出的有 0 项。** 当前算得最深入的是第一项中的三支规范耦合阈值。图中“已算”指能在所列假设下重算的结论，“待解”指该结论与原题之间的缺口。[原书四问及其前提](https://github.com/the-omega-institute/trureturing-books/blob/e33dd73f5629185880dcaddedbee0b9573fafc5f/books/quantum-geometry/zh/ch39-s11-af-gut-arc-field-grand-unification.md#prob-ch39-af-gut-threshold-and-proton-stability)
 
 ```text
