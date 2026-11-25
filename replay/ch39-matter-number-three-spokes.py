@@ -53,9 +53,9 @@ def verify_vacuum(matrices, pole, orbit, weight):
 
 def integrate_force(numerator, denominator, tolerance="1e-11"):
     # Integrate s*N(s)/D(s) in s=16*t and s=16/t. The tail singularity
-    # cancels exactly because deg(D)-deg(N)=3.
+    # cancels since deg(D)-deg(N)>=3.
     n, d = numerator.degree(), denominator.degree()
-    assert n == d-3
+    assert n <= d-3
     def mapped(poly, reverse):
         coeff = [v*16**i for i,v in enumerate(poly.coeffs())]
         return acb_poly(coeff[::-1] if reverse else coeff)
@@ -63,7 +63,7 @@ def integrate_force(numerator, denominator, tolerance="1e-11"):
     for reverse in (False, True):
         top, bottom = mapped(numerator, reverse), mapped(denominator, reverse)
         def integrand(t, analytic):
-            return 256*(1 if reverse else t)*top(t)/bottom(t)
+            return 256*(t**(d-n-3) if reverse else t)*top(t)/bottom(t)
         val = acb.integral(integrand, 0, 1, rel_tol=arb(tolerance), abs_tol=arb(tolerance)/10)
         assert val.imag.contains(0) and val.is_finite()
         result += val.real
