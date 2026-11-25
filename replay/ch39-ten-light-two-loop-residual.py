@@ -11,13 +11,7 @@ crossing = vacuum["phase"]["crossing"]
 sheet = crossing["smooth"]["sheet"]
 
 
-def verify():
-    ctx.prec=320
-    h = acb.zeta_zero(11431).imag
-    r = soft["geo"]["theta"](804)/soft["geo"]["theta"](12)
-    K = (h*h+soft["point"]["study"]["offset"])/r**2
-    op,_,vnorm,squared,w = vacuum["setup"](h)
-    light,motion = vacuum["light"](K,op,vnorm,squared,w)
+def insertion_family(light,motion,r):
     shifts = arb(0,(arb(2).sqrt()*motion).upper())
     m = crossing["shell_spectra"]((0,5))
     m0 = [v+shifts for v in m[0]]
@@ -50,7 +44,6 @@ def verify():
                  for j,(v,group) in enumerate(zip(casimirs,casimir_adjoint))] for vv in basis]
         projected_dirac.append((rows,levels))
 
-    low,high=( (arb(mu)/mz).log() for mu in ("1e13","1e17"))
     def towers(Q2):
         def total(row,vector):
             # At small momentum the leading normalized positive log bound is
@@ -114,6 +107,18 @@ def verify():
             ybox = sum(arb(0).union(t*yuk_cap) for t in dr)*L/(32*pi**3)
             boxes.append(one+(heavy_range[i]-dot(br,area))*L/(steps*8*pi**2)+ybox)
         return gauge_insert,light_residual,all_dirac,boxes
+    return insertion,mz,m[5],dot(p,adjoint)
+
+
+def verify():
+    ctx.prec=320
+    h = acb.zeta_zero(11431).imag
+    r = soft["geo"]["theta"](804)/soft["geo"]["theta"](12)
+    K = (h*h+soft["point"]["study"]["offset"])/r**2
+    op,_,vnorm,squared,w = vacuum["setup"](h)
+    light,motion = vacuum["light"](K,op,vnorm,squared,w)
+    insertion,mz,vectors,projection = insertion_family(light,motion,r)
+    low,high = ((arb(mu)/mz).log() for mu in ("1e13","1e17"))
     # A finite cover of the matching-scale window avoids binding every
     # early- and late-momentum sample to opposite endpoints of four decades.
     results=[]
@@ -129,9 +134,9 @@ def verify():
     assert gauge_low > arb(".685") and gauge_high < arb(".845") and residual > arb(".654")
     all_dirac = min(v.lower() for _,_,v,_ in results)
     print("Residual lower with all allowed Dirac decoupling functions",all_dirac.str(10))
-    assert all_dirac > arb(".4617") and all_dirac/(-p[1]) > arb(".3022")
+    assert all_dirac > arb(".4617") and all_dirac*218/333 > arb(".3022")
 
-    return insertion,mz,r,m[5],dot(p,adjoint)
+    return insertion,mz,r,vectors,projection
 
 
 if __name__ == "__main__":
