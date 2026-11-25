@@ -14,7 +14,7 @@ def bilinear(a, matrix, b):
     return (a.transpose()*matrix*b)[0,0]
 
 
-def reference_problem(logs, scale, z, model_rho, eta, c, masses, time):
+def reference_problem(logs, scale, z, model_rho, eta, c, masses, time, *, basis=directions):
     n1 = poles["reference_readings"](logs)[3]
     e = n1**2/scale
     b,d = c/model_rho,eta/model_rho
@@ -36,7 +36,7 @@ def reference_problem(logs, scale, z, model_rho, eta, c, masses, time):
         factor = e*(x-1)/((spectral_mass**2+e)*(spectral_mass**2+x*e))
         v = alternate*family
         form = (alternate+v*v.transpose()*(1/gap))*factor
-        forms.append(directions.transpose()*form*directions)
+        forms.append(basis.transpose()*form*basis)
         packets.append((factor,inverse,direct[2,2]/(x*k0*bare),x*k1*bare))
     return forms, packets
 
