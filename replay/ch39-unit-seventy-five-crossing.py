@@ -29,9 +29,9 @@ def index_table():
     return {q:[int(t) for t in row] for q,row in rows.items()}
 
 
-def shell_spectra():
+def shell_spectra(charges=(0, 5, 10)):
     height = acb.zeta_zero(11431).imag
-    base, neutral, heavy = soft["vector_pencil"](height)
+    base, neutral, _ = soft["vector_pencil"](height)
     matrix = base+neutral
     integer = fmpz_mat([[int(t.real.unique_fmpz()) for t in row] for row in matrix.tolist()])
     neutral_mass = [z.real for z,k in integer.charpoly().complex_roots() if z!=0 for _ in range(k)]
@@ -39,11 +39,45 @@ def shell_spectra():
     # of the rank-three stiffness removal equals four times its per-edge weight.
     amount = arb(23)/25*arb(2)**-20/(height**2+soft["point"]["study"]["offset"])
     shift = arb(0).union(4*amount)
-    values = {0:neutral_mass, 5:smooth["masses"](base+heavy),
-              10:smooth["masses"](base+matter["nonspokes"](10,height))}
+    values = {q: smooth["masses"](base+matter["nonspokes"](q, height))
+              for q in charges if q}
+    if 0 in charges:
+        assert len(neutral_mass) == 18
+        values[0] = neutral_mass
     result = {q:[v-shift for v in masses] for q,masses in values.items()}
     assert all(v>arb(".01") for row in result.values() for v in row)
     return result
+
+
+def verify_decrease(masses, indices, radius, box):
+    # d sheet / d log(momentum) integrates z/(m2+z) with positive weight,
+    # z=(radius*f)^2*(1-y*y)/4. Positive (vector) terms need upper bounds.
+    def slope(levels, factor, vector):
+        if factor is None:
+            return len(levels)
+        def primitive(y):
+            return (8*y-y**3)/7 if vector else (3*y-y**3)/2
+        value = arb(0)
+        for i in range(32):
+            lo, hi = arb(i)/32, arb(i+1)/32
+            y = lo if vector else hi
+            z = (radius*factor)**2*(1-y*y)/4
+            value += (primitive(hi)-primitive(lo))*sum(z/(v+z) for v in levels)
+        return value
+
+    matter_levels = {q: [v+box for v in (row if q else [arb(0), *row])]
+                     for q, row in masses.items()}
+    intervals = [(arb(i)/4, arb(i+1)/4) for i in range(4,8)] + [(arb(2), None)]
+    bounds = []
+    for lo, hi in intervals:
+        neutral, heavy = (slope(masses[q], hi, True) for q in (0, 5))
+        dirac = {q: slope(row, lo, False) for q, row in matter_levels.items()}
+        for i, (b, n, h) in enumerate(zip(beta, (0,2,3), (5,3,2))):
+            upper = (-b/2+7*(n*neutral+h*heavy)/4
+                     -2*sum(indices[q][i]*v for q,v in dirac.items())/3)/arb.pi()
+            assert upper < -arb("21.37")
+            bounds.append(upper.upper())
+    print("Upper bound on all log-momentum slopes above matching", max(bounds).str(9))
 
 
 def verify():
@@ -104,6 +138,16 @@ def verify():
     later = readings(box, logs, 2)
     assert all(v < -arb("6.85") for v in later)
     print("At twice the matching momentum", *[v.str(10) for v in later])
+
+    verify_decrease(mass, indices, radius, box)
+    # Disjoint brackets certify the first zero above matching for every root
+    # in the crossing rectangle. The subtraction momentum and masses stay fixed.
+    for i, lower, upper in ((1, "1.679471", "1.679481"),
+                            (0, "1.679495", "1.679504"),
+                            (2, "1.682196", "1.682207")):
+        assert readings(box, logs, arb(lower))[i] > 0
+        assert readings(box, logs, arb(upper))[i] < 0
+        print(("Y","W","C")[i], "zero momentum / matching momentum", lower, upper)
 
 
 if __name__ == "__main__":
