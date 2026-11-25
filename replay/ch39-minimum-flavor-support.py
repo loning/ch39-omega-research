@@ -63,25 +63,24 @@ def charm_bound(up, down, group, threshold):
     d = acb_mat([[down[i,j] for j in group] for i in range(9)])
     k = adjoint(d)*d - 3*adjoint(u)*u/threshold**2
     values, vectors = k.eig(right=True)
-    order = sorted(range(8),key=lambda j:float(values[j].real))
+    order = sorted(range(len(group)),key=lambda j:float(values[j].real))
     assert values[order[0]].real < 0 and all(values[j].real > 0 for j in order[1:])
     assert all(values[a].real < values[b].real for a,b in zip(order,order[1:]))
     columns = []
     for j in order:
-        vec = [vectors[i,j] for i in range(8)]
+        vec = [vectors[i,j] for i in range(len(group))]
         norm = sum(abs(x)**2 for x in vec).sqrt()
         columns.append([x/norm for x in vec])
     ref = u*acb_mat([[x] for x in columns[0]])
     center = acb_mat([[ref[3*i+j,0] for j in range(3)] for i in range(3)])
     singular = sorted([v.real.sqrt() for v in (adjoint(center)*center).eig()],key=float)
-    scaled = acb_mat([[columns[a][i]/values[order[a]].real.sqrt() for a in range(1,8)]
-                      for i in range(8)])
+    scaled = acb_mat([[columns[a][i]/values[order[a]].real.sqrt() for a in range(1,len(group))]
+                      for i in range(len(group))])
     error_map = u*scaled
     max_sq = max(v.real for v in (adjoint(error_map)*error_map).eig(multiple=True))
     radius = (-values[order[0]].real*max_sq).sqrt()
     bound = (singular[1]-radius)/(singular[2]+radius)
-    assert bound > (arb(".64") if group[0] == 0 else arb(".559"))
-    print("达到顶底层级时的粲顶比下界",bound.str(12))
+    return bound
 
 
 def verify():
@@ -111,7 +110,9 @@ def verify():
     assert len(unknown) == 6 and unknown == set.union(*(orbit(g,rotation) for g in WITNESSES))
     for group, coefficients in WITNESSES.items():
         assert submatrix(gd,group).det().real > 0
-        charm_bound(up,down,group,arb(".8573")/arb(".01410"))
+        bound = charm_bound(up,down,group,arb(".8573")/arb(".01410"))
+        assert bound > (arb(".64") if group[0] == 0 else arb(".559"))
+        print("达到顶底层级时的粲顶比下界",bound.str(12))
         profile = acb_mat(19,1)
         for k,(re,im) in zip(group,coefficients):
             profile[k,0] = acb(re,im)/(10**10)
