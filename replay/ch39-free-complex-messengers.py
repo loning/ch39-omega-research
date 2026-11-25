@@ -8,7 +8,7 @@ radial = run_path(str(Path(__file__).with_name("ch39-radial-fermion-feedback.py"
 free = radial["free"]
 
 
-def verify(energy_slack="0"):
+def verify(energy_slack="0", *, label=11431, count=23226, gauge_check=None):
     ctx.prec = 160
     slack = arb(energy_slack)
     assert slack >= 0
@@ -23,8 +23,8 @@ def verify(energy_slack="0"):
     first = 2*r*(1+2*r)
     first_error = 3*coefficient*remainder*first
     hess_error = 3*coefficient*((-2*(1-2*r).log())*first**2 + remainder*2*r**2)
-    p = 23226
-    theta = free["absolute"]["angle"](11431)
+    p = count
+    theta = free["absolute"]["angle"](label)
     hot, cold = 3*arb(2).log()*u, 3*arb.pi()*u/2
     chord = lambda x: 4*(x/2).sin()**2
     margins = []
@@ -91,7 +91,11 @@ def verify(energy_slack="0"):
             margins.append((gap_q.lower(),q,orientation))
     deviation = max(abs(z[i]-1).upper() for z in all_radii for i in (0,1))
     threshold = (arb(4)/3)*12*r*deviation/(1-r*(1+deviation))/(16*arb.pi()**2)
-    radial["fixed_gauge_box"](r,threshold)
+    if gauge_check is None:
+        assert label == 11431
+        radial["fixed_gauge_box"](r,threshold)
+    else:
+        gauge_check(r,threshold)
     angle_low = min(x.lower() for x in all_angles)
     angle_high = max(x.upper() for x in all_angles)
     print("Positive charged angle offset from 2pi/3", (angle_low-2*arb.pi()/3).str(9),

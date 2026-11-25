@@ -28,7 +28,8 @@ def verify(energy_slack="0"):
     budget = (2*remainder + 4*(C*r**2)**2/(R*dmin)
               + end_cost + u*3*arb.pi()*(p-1)/2 + arb(energy_slack))
     eps = (budget/R).sqrt()
-    assert eps < arb(".002")
+    assert eps < arb(".001381")
+    eps = arb(".001381")
     # 扣除半份原路径能以吸收一圈的标量质量主项。
     sing = 2*eps/dmin.sqrt()
     assert sing < arb(".002")
