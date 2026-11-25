@@ -30,7 +30,8 @@ def solve_centered(matrix,rhs):
 def candidate(coords,values,r):
     dif=rows_relative(values)
     # 用 11432 承担尚未分给另四个外部编号的权重，消去总质量方程。
-    start=[a+r*(b-a) for a,b in zip(values[0],values[1])]
+    mid=r.mid()
+    start=[a+mid*(b-a) for a,b in zip(values[0],values[1])]
     a,b,uc,dc,j=start
     domain=sharp["lo"].union(sharp["hi"])
     def solve_at(u):
@@ -40,12 +41,19 @@ def candidate(coords,values,r):
                      [a+S*v for a,b,v,d,j in dif[2:]],
                      [b+T*v for a,b,v,d,j in dif[2:]],
                      [dot(phase,row) for row in dif[2:]]])
-        rhs=arb_mat([[-r*coords[1]],[S*(1-uc)-a],[T*(1-uc)-b],
-                     [-j+h*(1-uc)*(K*uc-dc+S*T)]])
+        drift=dif[0]
+        rhs=arb_mat([[-mid*coords[1],-coords[1]],
+                     [S*(1-uc)-a,drift[0]+S*drift[2]],
+                     [T*(1-uc)-b,drift[1]+T*drift[2]],
+                     [-j+h*(1-uc)*(K*uc-dc+S*T),dot(phase,drift)]])
         ws=solve_centered(mat,rhs)
-        exterior=[ws[k,0] for k in range(4)]
-        U=uc+dot(exterior,[row[2] for row in dif[2:]])
-        D=dc+dot(exterior,[row[3] for row in dif[2:]])
+        by_mass=[ws[i,1] for i in range(4)]
+        exterior=[ws[i,0]+(r-mid)*by_mass[i] for i in range(4)]
+        def reading(k,center):
+            column=[row[k] for row in dif[2:]]
+            base=center+dot([ws[i,0] for i in range(4)],column)
+            return base+(r-mid)*(dot(by_mass,column)-drift[k])
+        U,D=reading(2,uc),reading(3,dc)
         return mat,exterior,U,D
     mat,exterior,U,D=solve_at(domain)
     assert domain.contains_interior(U), (str(domain),str(U))
@@ -69,7 +77,10 @@ def dual_plane(coords,costs,values,reference,u):
                  for i,(a,b,v,d,j) in enumerate(dif) if i>=2])
     dual=solve_centered(mat,arb_mat([[c-costs[1]] for c in costs[2:]]))
     beta,first,second,cp=[dual[i,0] for i in range(4)]
-    assert first>0 and second>0 and cp>0
+    # 完整相位比代入两个角下边后的相位多出两个线性余量与一个非负乘积。
+    assert cp>0
+    assert first+cp*h*(T-(1-T)*u)>0
+    assert second+cp*h*(S-(1-S)*u)>0
     coeff=[cp*z+first*x+second*y for z,x,y in zip(phase,(1,0,S,0,0),(0,1,T,0,0))]
     return mat.det(),beta,coeff
 
