@@ -81,6 +81,9 @@ def verify():
     assert q(domain) > 0 and 0 not in sb(domain)
     curvature = sa*sb.derivative()-sb*sa.derivative()
     assert 0 not in curvature(domain)
+    # 反向运行与正向运行共用端口参考。所有混合条目均落在此凸锥内。
+    assert a(domain) > 2*abs(b(domain))
+    assert 2*(arb(1)/2).atan()+arb("4e-12") < arb.pi()/2
 
     left, target, right = [pencil(1/(2*acb.zeta_zero(n).imag)).inv()
                            for n in (11430, 11431, 11432)]
