@@ -34,9 +34,10 @@ def verify():
     positions = [outer.index(i) for i in outside]
     gram = fmpq_mat([[centered[a, b] + 1 for b in positions] for a in positions])
     assert gram*sign_column == fmpq_mat(6, 1)
-    print("First cutoff for a null alternating outer direction: 216.",
-          "Scaled alternating coupling:", float(eigenvalue))
+    return points, distance, outside, inside, sign_column, eigenvalue
 
 
 if __name__ == "__main__":
-    verify()
+    *_, eigenvalue = verify()
+    print("First cutoff for a null alternating outer direction: 216.",
+          "Scaled alternating coupling:", float(eigenvalue))
