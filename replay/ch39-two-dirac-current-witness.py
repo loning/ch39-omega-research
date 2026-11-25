@@ -65,9 +65,10 @@ def equation(data, r1, r2):
     return residual, gradient, residual/last
 
 
-def certify(packets, centre):
+def certify(packets, centre, inverse=None):
     # A fixed rational matrix is sufficient for all three contraction tests.
-    inverse = arb_mat([[q("-.074"), q(".032")], [q(".760"), q("-.232")]])*10**6
+    if inverse is None:
+        inverse = arb_mat([[q("-.074"), q(".032")], [q(".760"), q("-.232")]])*10**6
     radius = q(".000001")
     error = arb(0, radius.upper())
     box = [value+error for value in centre]
