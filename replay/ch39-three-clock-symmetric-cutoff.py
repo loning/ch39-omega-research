@@ -80,6 +80,13 @@ def verify():
     def constant_sign(p):
         positive_for_positive_t(p if p.leading_coefficient() > 0 else -p)
     constant_sign(anti)
+    # 三条有向的内点边依次给同一反分式线性变换，内点坐标可各自任意。
+    det_h = h[0][0]*h[1][1] - h[0][1]*h[1][0]
+    positive_for_positive_t(det_h - anti**2)
+    rotate = [points.index((p[1],p[2],p[0])) for p in points]
+    cyclic = (4,12,13)
+    assert ([rotate[i] for i in cyclic] in ([12,13,4],[13,4,12])
+            and all(distance(cyclic[i],cyclic[(i+1)%3])==392 for i in range(3)))
     assert h[1][1] == k[1][1]
     slope = h[0][1] + h[1][0] - k[0][1] - k[1][0]
     intercept = h[0][0] - k[0][0]
@@ -98,6 +105,7 @@ def verify():
     mixed = k[0][0]*h[1][1] - k[0][1]*(h[0][1]+h[1][0]) + k[1][1]*h[0][0]
     constant_sign(mixed)
     print("C3-invariant rank five excluded for every cutoff below 392.")
+    print("Cyclic symmetry on the six outer points alone excludes arbitrary complex inner coordinates.")
 
 
 if __name__ == "__main__":
