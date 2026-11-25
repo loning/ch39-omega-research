@@ -19,7 +19,7 @@ def spoke_polynomials(matrix, pole, orbit, weight, relative):
         for j, factor in zip(orbit, (relative, relative.conjugate(), 1)):
             m[pole,pole] += weight-1
             m[j,j] += weight-1
-            m[pole,j] = -weight*phase*factor
+            m[pole,j] = matrix[pole,j]*weight*phase*factor
             m[j,pole] = m[pole,j].conjugate()
         coefficients = (-m).charpoly().coeffs()
         assert all(z.imag.contains(0) for z in coefficients)
@@ -301,6 +301,7 @@ def verify():
         assert all(counts[shape] == 3*int(k==i) for k,counts in enumerate(shapes))
         assert rows[i][2] > 0
     print("Five metric triangle weights for radial stationarity", *[(r[2]/3).str(7) for r in rows])
+    return {0:base+neutral, **signed}, 1-change, cbox, [r[2]/3 for r in rows], unique
 
 
 if __name__ == "__main__":
