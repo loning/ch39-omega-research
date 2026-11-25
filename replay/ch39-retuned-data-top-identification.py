@@ -44,22 +44,25 @@ def verify():
         _,readings,width = retune["predictions"](logs,initial_time)
         _,*model = fit["invert_observations"](readings,width,index=11431)
         windows = window["window_data"](model,gap)
-        window["verify_speeds"](windows)
-        pivot = q(logs[2])
-        offsets = ((None,"-.00000070","-.0000032"),(".00000070",None,"-.00000265"),
-                   (".00000315",".0000027",None))
-        for index in range(3):
-            if index == case:
-                continue
-            at = pivot+q(offsets[case][index])
-            weak,(_,third) = projected_pairs(index,windows,at)
-            direction = 1 if index>case else -1
-            weak_gap = direction*(study["target_at"](at)-weak)
-            pair_gap = -direction*third
-            print(case,index,weak_gap.lower().str(10),pair_gap.lower().str(10),flush=True)
-            assert weak_gap>arb(2)**-21 and pair_gap>arb(2)**-20
-            for upper in (False,True):
-                window["bounds"](index,upper,windows,q(33))
+        exclude_other_orbits(case,windows,q(logs[2]))
+
+
+def exclude_other_orbits(case,windows,pivot):
+    window["verify_speeds"](windows)
+    offsets = ((None,"-.00000070","-.0000032"),(".00000070",None,"-.00000265"),
+               (".00000315",".0000027",None))
+    for index in range(3):
+        if index == case:
+            continue
+        at = pivot+q(offsets[case][index])
+        weak,(_,third) = projected_pairs(index,windows,at)
+        direction = 1 if index>case else -1
+        weak_gap = direction*(study["target_at"](at)-weak)
+        pair_gap = -direction*third
+        print(case,index,weak_gap.lower().str(10),pair_gap.lower().str(10),flush=True)
+        assert weak_gap>arb(2)**-21 and pair_gap>arb(2)**-20
+        for upper in (False,True):
+            window["bounds"](index,upper,windows,q(33))
 
 
 if __name__ == "__main__":
