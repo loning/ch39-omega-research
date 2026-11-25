@@ -31,7 +31,8 @@ def verify():
     counts = [int((alpha/a + q(1)/2).floor().unique_fmpz()) for a in angles]
     assert counts[base] == 23226 and (min(counts), max(counts)) == (22139, 24386)
     assert min(b-a for a,b in zip(counts, counts[1:])) >= 0
-    assert max(b-a for a,b in zip(counts, counts[1:])) == 4
+    four_step_edges = [first+j for j in range(len(counts)-1) if counts[j+1]-counts[j] == 4]
+    assert max(b-a for a,b in zip(counts, counts[1:])) == 4 and four_step_edges
 
     # 固定长度时给 11430 一个保留算术规范量的试探尺度。
     angle_diff = angles[base-1] - angles[base]
@@ -86,6 +87,7 @@ def verify():
     # 逐一控制首个共振前的缩短与共振处的离开。
     phase_tops = []
     length_margins = []
+    local_margins = []
     radial = (q(1)/6).union(q(1)/4)
     for a,p in zip(angles, counts, strict=True):
         delta = alpha-p*a
@@ -100,7 +102,16 @@ def verify():
         length_margins.extend([((earlier-q("2e-16"))/max_heat).lower(),
                                ((energy_change(lower)-q("2e-16"))/max_heat).lower(),
                                ((energy_change(upper)+q("1e-17"))/max_heat).lower()])
+        # 从一端半径四格找另一端，最远候选可高出另一端首个共振八格。
+        assert 0 < (p+8)*a-alpha < q.pi()/3
+        old = upper
+        for k in range(p+2,p+9):
+            new = u(k)
+            rise = 3*(new-old)/((1+radial*old/2)*(1+radial*new/2))
+            local_margins.append(((rise+q("1e-17"))/max_heat).lower())
+            old = new
     assert min(length_margins) > 64
+    assert min(local_margins) > 64
 
     label_margins = []
     for j in range(len(heights)-1):
@@ -130,6 +141,8 @@ def verify():
     print("长度边与联合编号边的最小能差下界（热能单位）",
           min(length_margins).str(10),min(label_margins).str(10))
     print("180000 步的失败概率上界",risk.upper().str(10))
+    print("需要四格连接的边数",len(four_step_edges),"首条边的左端编号",four_step_edges[0],
+          "共振后第二至第八步的最小涨幅（热能单位）",min(local_margins).str(10))
 
 
 if __name__ == "__main__":
