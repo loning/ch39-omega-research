@@ -35,6 +35,7 @@ def pair_witnesses(logs, time, reference, targets):
     v = physical*arb_mat([[-6*c/side], [2*r/side], [1]])
     y = physical*light["mat"]["y"]
     shape, hyper = v*v.transpose(), y*y.transpose()
+    left_predictions = []
     for target in targets:
         k = 1/(poles["offset"]+target/(15*length))
         for pair in combinations(channels, 2):
@@ -50,6 +51,9 @@ def pair_witnesses(logs, time, reference, targets):
             assert light["mat"]["positive"](full)
             trial = physical*full*physical.transpose()
             assert all(trial[i, j].overlaps(reference[i, j]) for i, j in pair)
+            if pair == channels[1:]:
+                left_predictions.append(trial[0, 0])
+    return left_predictions
 
 
 def verify():
