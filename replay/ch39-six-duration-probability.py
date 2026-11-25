@@ -9,6 +9,9 @@ from flint import acb, acb_mat, arb, ctx
 certificate = run_path(str(Path(__file__).with_name("ch39-exposed-flavor-response.py")))
 ordered = run_path(str(Path(__file__).with_name("ch39-ordered-flavor-unitary.py")))
 study = certificate["study"]
+labels = [11381,11397,11430,11432,11303,11576]
+ticks = [2524400588,27079266863,228067471734,631469107462,54654922957,56204830396]
+assert sum(ticks) == 10**12
 
 
 def ball(q):
@@ -66,9 +69,6 @@ def verify():
     print("Probability gaps per off-center fraction: one duration, six, Cartesian",
           single.str(9), six.str(9), cartesian.str(9))
 
-    labels = [11381,11397,11430,11432,11303,11576]
-    ticks = [2524400588,27079266863,228067471734,631469107462,54654922957,56204830396]
-    assert sum(ticks) == 10**12
     response = study["native"]["plane_response"]
     blocks = [response(acb.zeta_zero(n).imag) for n in labels]
     center = response(acb.zeta_zero(11431).imag)

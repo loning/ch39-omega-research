@@ -11,7 +11,7 @@ degree = 19
 curvature = arb(1)/1000
 
 
-def samples():
+def response_grid():
     phases = study["geo"]["phases"](acb.zeta_zero(11431).imag)
     nodes = [acb(0,2*arb.pi()*k/size).exp() for k in range(size)]
     inside, portals, columns = (native[k] for k in ("inside","portals","columns"))
@@ -27,13 +27,20 @@ def samples():
             exchange = acb_mat([[-m[origin,i]*solution[inside.index(i),k]*m[j,origin]
                                  for k,j in enumerate(portals)] for i in portals])
             t = columns*exchange*columns.transpose()
-            xyz = ((t[0,0].real-t[1,1].real)/2, t[0,1].real, t[0,1].imag)
-            row.append((det,xyz))
+            row.append((det,t))
         rows.append(row)
-    det0,xyz0 = rows[0][0]
-    return [[[(v-w)*d/det0 for v,w in zip(xyz,xyz0)]
+    return nodes,rows
+
+
+def samples():
+    nodes,rows = response_grid()
+    def xyz(t):
+        return ((t[0,0].real-t[1,1].real)/2, t[0,1].real, t[0,1].imag)
+    det0,t0 = rows[0][0]
+    xyz0 = xyz(t0)
+    return [[[(v-w)*d/det0 for v,w in zip(xyz(t),xyz0)]
              +[d/det0*(4-2*nodes[i].real-2*nodes[j].real)]
-             for j,(d,xyz) in enumerate(row)] for i,row in enumerate(rows)]
+             for j,(d,t) in enumerate(row)] for i,row in enumerate(rows)]
 
 
 def fourier(series):
