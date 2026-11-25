@@ -62,6 +62,14 @@ def verify():
     change = 12*r*window/(1-r*(1+window))
     each_shift = (arb(4)/3)*change/(16*arb.pi()**2)
     assert each_shift < arb("2.1e-11")
+    fixed_gauge_box(r, each_shift)
+    print("未补偿时的径向力下界",minimum_force.str(10),
+          "振子必要的平方模容差",needed.str(10),
+          "统一校准后的半径误差",window.str(11),
+          "每个原始逆规范耦合的额外阈值上界",each_shift.str(11))
+
+
+def fixed_gauge_box(r, each_shift):
     # 复算原尺度与编号的排除，加入新的阈值误差。
     absolute = free["absolute"]
     gauge = absolute["gauge"]
@@ -99,10 +107,7 @@ def verify():
     uniform_witness = [x+rate*offset+target*(1-(-2*offset).exp())-common_box/v
                        for x,rate,v in zip(residuals,rates,ratios)]
     assert all(abs(x)<tol for x in uniform_witness)
-    print("未补偿时的径向力下界",minimum_force.str(10),
-          "振子必要的平方模容差",needed.str(10),
-          "统一校准后的半径误差",window.str(11),
-          "每个原始逆规范耦合的额外阈值上界",each_shift.str(11))
+
 
 
 if __name__ == "__main__":
