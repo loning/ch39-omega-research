@@ -1,0 +1,200 @@
+"""四个味作用系数改变时，四点取等分布及其端口代价的变化。"""
+from pathlib import Path
+from runpy import run_path
+from flint import acb, acb_mat, arb, arb_mat, ctx
+
+root = Path(__file__).parent
+joint = run_path(str(root/"ch39-zero-port-ckm.py"))
+sharp = joint["sharp"]
+study = sharp["study"]
+flavor = study["flavor"]
+centers = [arb(n)/2048 for n in flavor["codes"]]
+
+
+def observations(matrix):
+    a, b, u, v = [abs(matrix[i,j])**2 for i,j in ((0,1),(1,2),(0,2),(2,0))]
+    j = (matrix[0,1]*matrix[1,2]*matrix[0,2].conjugate()*matrix[1,1].conjugate()).imag
+    return [a,b,u,v,j]
+
+
+def flavor_data(t, coeff):
+    identity, basis = flavor["identity"], flavor["basis"]
+    terms = (t, flavor["arcs"][32], flavor["arcs"][152], identity)
+    action = sum((s*m for s,m in zip(coeff,terms)),acb_mat(2,2))
+    mean = action.trace().real/2
+    d = action-mean*identity
+    r = (d[0,0].real**2+abs(d[0,1])**2).sqrt()
+    assert r>0
+    sinc = r.sin()/r
+    phase = acb(0,mean).exp()
+    wave = phase*(r.cos()*identity+acb(0,sinc)*d)
+    matrix = flavor["radial"]+basis*wave*basis.transpose()
+    derivatives = []
+    for term in terms:
+        mu = term.trace().real/2
+        e = term-mu*identity
+        dr = (d[0,0].real*e[0,0].real+(d[0,1].conjugate()*e[0,1]).real)/r
+        ds = (r.cos()-sinc)*dr/r
+        motion = acb(0,mu)*wave+phase*(-r.sin()*dr*identity+acb(0,ds)*d+acb(0,sinc)*e)
+        change = basis*motion*basis.transpose()
+        dat = [2*(matrix[i,j].conjugate()*change[i,j]).real for i,j in ((0,1),(1,2),(0,2),(2,0))]
+        original = [matrix[0,1],matrix[1,2],matrix[0,2].conjugate(),matrix[1,1].conjugate()]
+        varied = [change[0,1],change[1,2],change[0,2].conjugate(),change[1,1].conjugate()]
+        product = acb(0)
+        for i in range(4):
+            value = varied[i]
+            for j in range(4):
+                if j != i:
+                    value *= original[j]
+            product += value
+        derivatives.append([*dat,product.imag])
+    return observations(matrix), derivatives
+
+
+def tight_data(t, center, radii):
+    base, _ = flavor_data(t,center)
+    box = [v+arb(0,r) for v,r in zip(center,radii)]
+    rough, derivatives = flavor_data(t,box)
+    values = [a.intersection(b+sum(abs(derivatives[i][j])*arb(0,r) for i,r in enumerate(radii)))
+              for j,(a,b) in enumerate(zip(rough,base))]
+    return values, derivatives
+
+
+def phase_system(weights, xs, point_rows):
+    S, tau = sharp["S"], sharp["tau"]/2
+    means = [sum(w*row[j] for w,row in zip(weights,point_rows)) for j in range(5)]
+    a,b,u,v,j = means
+    cu = (1-S)*(1-2*u)+v-(1-S)*b
+    cb = S-(1-S)*u
+    delta = [0,-tau*cb,-tau*cu,tau*(1-u),1]
+    phase = j-tau*((1-S)*u*(1-u)-(1-u)*v+(S-(1-S)*u)*b)
+    residual = arb_mat([[sum(weights)-1],[sum(w*x for w,x in zip(weights,xs))],
+                        [a-S*(1-u)],[phase]])
+    matrix = arb_mat([[1]*4, xs,
+                      [row[0]+S*row[2] for row in point_rows],
+                      [sum(c*y for c,y in zip(delta,row)) for row in point_rows]])
+    return residual, matrix, delta
+
+
+def verify():
+    ctx.prec = 224
+    cost, strength = joint["port_cost"]()
+    heights = [acb.zeta_zero(n).imag for n in sharp["support"]]
+    inputs = [study["native"]["plane_response"](h) for h in heights]
+    xs = [study["center"]/(h*h+study["offset"])-1 for h in heights]
+    central = [flavor_data(t,centers)[0] for t in inputs]
+    weights, _ = sharp["attaining_distribution"](list(zip(xs,central)),[],[])
+    mid = [w.mid() for w in weights]
+    r = arb(2)**-28
+    data = [tight_data(t,centers,[r]*4) for t in inputs]
+    values, derivatives = zip(*data)
+    box = [w+arb(0,arb(".002")) for w in mid]
+    residual, _, _ = phase_system(mid,xs,values)
+    _, initial_jac, _ = phase_system(box,xs,values)
+    pre = arb_mat([[initial_jac[i,j].mid() for j in range(4)] for i in range(4)]).inv()
+    ident = arb_mat([[int(i==j) for j in range(4)] for i in range(4)])
+    contraction = ident-pre*initial_jac
+    ratios = [sum(abs(contraction[i,j]) for j in range(4)) for i in range(4)]
+    step0 = pre*residual
+    print("contraction",max(ratios).str(10),flush=True)
+    assert max(ratios)<1
+    assert all(abs(step0[i,0])+ratios[i]*arb(".002") < arb(".002") for i in range(4))
+    for k in range(6):
+        _, jac, delta = phase_system(box,xs,values)
+        step = jac.solve(residual)
+        image = [w-step[i,0] for i,w in enumerate(mid)]
+        if k==0:
+            assert all(a.contains_interior(b) for a,b in zip(box,image))
+        box = [a.intersection(b) for a,b in zip(box,image)]
+    assert all(w>0 for w in box)
+    _, jac, delta = phase_system(box,xs,values)
+    multipliers = jac.transpose().solve(arb_mat([[cost(x)[0]] for x in xs]))
+    signs = []
+    for j in range(4):
+        mean = [sum(w*point[j][k] for w,point in zip(box,derivatives)) for k in range(5)]
+        deriv = -multipliers[2,0]*(mean[0]+sharp["S"]*mean[2])
+        deriv -= multipliers[3,0]*sum(a*b for a,b in zip(delta,mean))
+        print("Derivative",j,deriv.str(15))
+        assert 0 not in deriv
+        signs.append(1 if deriv>0 else -1)
+    assert signs == [-1, -1, -1, -1]
+    print("Minimum corner signs",[-s for s in signs],"weights",*[a.str(10) for a in box])
+    S = sharp["S"]
+    mean = [sum(w*row[i] for w,row in zip(box,values)) for i in range(5)]
+    reference = [mean[i] for i in (2,1,3,4)]
+    assert sharp["lo"] < mean[2] < sharp["hi"]
+    assert arb(".041775")**2 < mean[1]/(1-mean[2]) < arb(".041885")**2
+    assert mean[4]>0
+    endpoint_data = []
+    costs = [cost(x)[0] for x in xs]
+    for u in (sharp["lo"],sharp["hi"]):
+        tests = sharp["phase_tests"](u, reference)
+        uc,bc,vc,jc = reference
+        cu = (1-S)*(1-u-uc)+vc-(1-S)*bc
+        cb = S-(1-S)*u
+        def diff_features(row, base, cu=cu, cb=cb, u=u):
+            a,b,k,v,j = [s-t for s,t in zip(row,base)]
+            return a+S*k, j-sharp["tau"]/2*(cu*k-(1-u)*v+cb*b)
+        mat = arb_mat([[1,x-xs[0],*diff_features(o,values[0])] if i else [1,0,0,0]
+                       for i,(x,o) in enumerate(zip(xs,values))])
+        rhs=arb_mat([[v-costs[0]] for v in costs])
+        center_mat=arb_mat([[mat[i,j].mid() for j in range(4)] for i in range(4)])
+        center_dual=center_mat.solve(rhs)
+        dual=center_dual+mat.solve(rhs-mat*center_dual)
+
+        assert mat.det()>0 and dual[2,0]>0 and dual[3,0]>0
+        def normalized(obs):
+            a,b=tests(obs)
+            return dual[2,0]/dual[3,0]*a+b
+        upper = dual[3,0]*sharp["compare_torus"](arb(1),normalized)
+        candidate_mean = sum(w*y for w,y in zip(box,costs))
+        for n in (8999,15001):
+            x, _ = sharp["row"](acb.zeta_zero(n))
+            value, dx = cost(x)
+            assert (dx>dual[1,0] if n==8999 else dx<dual[1,0])
+            assert value-dual[1,0]*x > candidate_mean+upper
+        endpoint_data.append((dual, diff_features))
+    corner = [center-sign*r for sign,center in zip(signs,centers)]
+    corner_rows=[flavor_data(t,corner)[0] for t in inputs]
+    corner_weights,_=sharp["attaining_distribution"](list(zip(xs,corner_rows)),[],[])
+    optimum=sum(w*v for w,v in zip(corner_weights,costs))*strength
+    assert arb("5.86817769346475e-25") < optimum < arb("5.86817769346477e-25")
+    print("Candidate corner gap",optimum.str(22),flush=True)
+    slopes=[row[0]+S*row[2]-S for row in values]
+    mat=arb_mat([[1]*4,xs,slopes,[row[2] for row in values]])
+    base=mat.solve(arb_mat([[1],[0],[0],[sharp["lo"]]]))
+    speed=mat.solve(arb_mat([[0],[0],[0],[sharp["hi"]-sharp["lo"]]]))
+    from flint import arb_poly
+    curves=[arb_poly([base[i,0],speed[i,0]]) for i in range(4)]
+    u=arb_poly([sharp["lo"],sharp["hi"]-sharp["lo"]])
+    b,v,j=[sum(w*row[k] for w,row in zip(curves,values)) for k in (1,3,4)]
+    phase=j-(sharp["tau"]/2)*((1-S)*u*(1-u)-(1-u)*v+(S-(1-S)*u)*b)
+    assert 0 not in phase.derivative()(arb(0).union(1))
+    coeff_box = [c+arb(0,r) for c in centers]
+    floor=arb(1)
+    for start in range(9000,15001,256):
+        count = min(256,15001-start)
+        zeros = acb.zeta_zeros(start,count)
+        assert len(zeros)==count
+        for n, zero in enumerate(zeros,start):
+            if n==11431 or n in sharp["support"]:
+                continue
+            h = zero.imag
+            x = study["center"]/(h*h+study["offset"])-1
+            value = cost(x)[0]-costs[0]
+            t = study["native"]["plane_response"](h)
+            obs = observations(flavor["mixing"](t,coeff_box))
+            for dual,features in endpoint_data:
+                def margin(o):
+                    a,p=features(o,values[0])
+                    return value-dual[1,0]*(x-xs[0])-dual[2,0]*a-dual[3,0]*p
+                gap=margin(obs)
+                if not gap>0:
+                    gap=margin(tight_data(t,centers,[r]*4)[0])
+                assert gap>0, (n,str(gap))
+                floor=min(floor,gap.lower())
+    print("Certified minimum strict slack in the flavor coefficient box",floor.str(14))
+
+
+if __name__ == "__main__":
+    verify()
