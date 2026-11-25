@@ -60,7 +60,7 @@ def reference_readings(logs):
     return [(L*e).sqrt() for e in (first,second)]+[width_r,(L*en).sqrt(),width_n]
 
 
-def recover_charged(mass1,mass2,width):
+def charged_geometry(mass1,mass2):
     observed = (mass2/mass1)**2
     def gap(z):
         e1,e2 = charged_poles(z)
@@ -68,6 +68,11 @@ def recover_charged(mass1,mass2,width):
     z = roots(gap,0,four["z_limit"])
     e,_ = charged_poles(z)
     L = mass1**2/e
+    return L,z,e
+
+
+def recover_charged(mass1,mass2,width):
+    L,z,e = charged_geometry(mass1,mass2)
     weight = 16*z*z/right(e,unit,True)
     rho = 3*weight/(16*arb.pi()*width)
     return 15*L*(rho-offset),L,z,rho
