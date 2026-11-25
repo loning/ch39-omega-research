@@ -26,7 +26,7 @@ def bisect(function,lo,hi):
     return lo.union(hi)
 
 
-def pole_resolvent(vertices,lengths,tree_count,*, edge_filter=None):
+def pole_polynomials(vertices,lengths,tree_count,*, edge_filter=None):
     n=len(vertices)
     lap=fmpz_mat(n,n)
     for i,p in enumerate(vertices):
@@ -45,7 +45,11 @@ def pole_resolvent(vertices,lengths,tree_count,*, edge_filter=None):
         assert positive.det()>0
     top,bottom=minor.charpoly(),lap.charpoly()
     common=top.gcd(bottom)
-    top,bottom=top//common,bottom//common
+    return top//common,bottom//common
+
+
+def pole_resolvent(vertices,lengths,tree_count,*, edge_filter=None):
+    top,bottom=pole_polynomials(vertices,lengths,tree_count,edge_filter=edge_filter)
     def green(energy,unit,derivative=False):
         t=energy/unit
         if derivative == 2:
@@ -62,7 +66,7 @@ def pole_resolvent(vertices,lengths,tree_count,*, edge_filter=None):
 primary_logs = ("24.3145558253697","26.71304007023748","26.81725683017028")
 
 
-def graph_constants():
+def graph_constants(*, port_builder=pole_resolvent):
     layers=graph["site_choices"]()
     chosen=[min((a for a in layer if a[1:3]==target),key=lambda a:a[3])
             for layer,target in zip(layers,[(18,243),(18,27),(15,12)],strict=True)]
@@ -74,8 +78,8 @@ def graph_constants():
     outer,middle,next_to,inner,pole=(1,5,29),(7,17,23),(11,11,25),(13,13,23),(17,17,17)
     colour=[p for p in points if orbit(p) in (outer,middle,next_to)]
     right=[p for p in points if orbit(p) in (middle,next_to,inner,pole)]+[pole]
-    gc=pole_resolvent(colour,(32,152,72,56),243)
-    gr=pole_resolvent(right,(56,12,68),12)
+    gc=port_builder(colour,(32,152,72,56),243)
+    gr=port_builder(right,(56,12,68),12)
     return unit,common,gc,gr
 
 

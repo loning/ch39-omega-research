@@ -73,17 +73,21 @@ def verify_three_point_witness(readings, coefficients, rho, indices):
     return physical_octet(c, rho, z)
 
 
-def physical_octet(c, rho, z):
+def physical_masses(c, rho, z):
     d = ((1 + q("21/2")*(56*z).log())/5).exp()
     def mass_equation(h):
         a_squared = ((1+4*d.log()+h.log()+arb(15).log()/2)/10).exp()
         return 15*a_squared - 1/(4*z) - (d/h)**2
 
-    h = study["enclose_roots"](mass_equation, ".5", "1.0")
+    h = study["enclose_roots"](mass_equation, ".05", "64")
     triplet = h*(c/(18*rho)).sqrt()
     octet = (triplet**2+d**2).sqrt()
     assert 0 < triplet < octet < 1
-    return octet
+    return triplet, octet
+
+
+def physical_octet(c, rho, z):
+    return physical_masses(c, rho, z)[1]
 
 
 def verify_precision_limit(readings, coefficients, common, neighbours):

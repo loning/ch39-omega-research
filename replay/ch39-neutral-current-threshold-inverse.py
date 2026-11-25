@@ -48,14 +48,22 @@ def verify():
     logs=[abs((v/v0).log()).upper() for v,v0 in zip(result,truth,strict=True)]
     assert all(x<q(b) for x,b in zip(logs,(".000718",".000193",".000009"),strict=True))
     triplet,octet,k=result
+    exclude_lower_tops(triplet,octet,c,beta,eta,g*g,nominal[2])
+    print("three current readings",*(v.str(12) for v in data))
+    print("20 ppb current windows: log errors in M3, M8, g_X",*(v.str(10) for v in logs))
+
+
+def exclude_lower_tops(triplet,octet,c,beta,eta,g2,log_scale):
     # Insert the inferred coupling into the physical mass equation, allowing
     # it to vary independently of the site coupling.
     unit,colour,right_green=study["ports"][-3:]
-    energy=roots(lambda e:beta+active(e)+4/(c-eta*e),".0001",".003")
+    def response(e,derivative=False):
+        return g2*(3*colour(e,unit,derivative)/8+right_green(e,unit,derivative)/4)
+    energy=roots(lambda e:beta+response(e)+4/(c-eta*e),".0001",".003")
     assert c/eta>triplet**2 and unit/64>triplet**2 and energy<triplet**2
-    norm=(active(energy,True)+4*eta/(c-eta*energy)**2).sqrt()
-    a=-g*g*colour(energy,unit)/(8*norm)
-    b=g*g*right_green(energy,unit)/(4*norm)
+    norm=(response(energy,True)+4*eta/(c-eta*energy)**2).sqrt()
+    a=-g2*colour(energy,unit)/(8*norm)
+    b=g2*right_green(energy,unit)/(4*norm)
     f=-2/((c-eta*energy)*norm)
     prefactor=(triplet**2/energy).log()/(16*arb.pi()**2)**2
     weak=q("15/16")*prefactor*(24*f*f+36*a*a+2*b*b)
@@ -63,22 +71,21 @@ def verify():
     colour_shift=prefactor*(24*f*f+12*a*a+6*b*b)
     assert max(weak,weak+pair,colour_shift)/(triplet/energy.sqrt()).log()<q(".001")
     d2=octet**2-triplet**2
-    h2=triplet**2/(g*g*c/18)
-    ww=g*g/(2*beta)
+    h2=triplet**2/(g2*c/18)
+    ww=g2/(2*beta)
     assert 1+(d2/h2+ww/2)*colour(triplet**2,unit)<0
     assert 1+ww/2*right_green(triplet**2,unit)<0
     for index,offset in enumerate((".00000266",".00000212")):
-        time=nominal[2]+q(offset)
-        h3=nominal[2]+triplet.log()
-        h8=nominal[2]+octet.log()
+        time=study["nominal"][2]+q(offset)
+        h3=log_scale+triplet.log()
+        h8=log_scale+octet.log()
+        assert h3 < time
         lo=study["at_scale"](index,False,h3.lower(),h8.lower(),time)
         hi=study["at_scale"](index,True,h3.upper(),h8.upper(),time)
         weak_gap=study["target_at"](time)-hi[1]+weak
         pair_gap=lo[1]-hi[0]+pair
         assert weak_gap>arb(2)**-21 and pair_gap>arb(2)**-20
         print("excluded group",index,"weak and pair gaps",weak_gap.lower().str(8),pair_gap.lower().str(8))
-    print("three current readings",*(v.str(12) for v in data))
-    print("20 ppb current windows: log errors in M3, M8, g_X",*(v.str(10) for v in logs))
 
 
 if __name__=="__main__":
