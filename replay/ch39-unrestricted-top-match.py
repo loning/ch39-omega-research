@@ -31,7 +31,7 @@ def coefficients(state, order, upper, flow):
     return grid["rational"]["taylor"](state, order, flow, 1/loop, opposite_trace=not upper)
 
 
-def advance(state, step, upper, *, need_tube=False, flow=running):
+def advance(state, step, upper, *, need_tube=False, flow=running, integrate_state=False):
     rate = arb(1)
     for _ in range(20):
         tube = [x+arb(0,(abs(step)*rate).upper()) for x in state]
@@ -45,8 +45,15 @@ def advance(state, step, upper, *, need_tube=False, flow=running):
     tube = [x+segment*v for x,v in zip(state,derivative,strict=True)]
     terms = coefficients(state,12,upper,flow)
     end = coefficients(tube,13,upper,flow)[-1]
+    if integrate_state:
+        integral = [v/14 for v in end]
+        for k in reversed(range(len(terms))):
+            integral = [v/(k+1)+step*w for v,w in zip(terms[k],integral,strict=True)]
+        integral = [step*v for v in integral]
     for term in reversed(terms):
         end = [a+step*b for a,b in zip(term,end,strict=True)]
+    if integrate_state:
+        return end,tube,integral
     return (end,tube) if need_tube else end
 
 

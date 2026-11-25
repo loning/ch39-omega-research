@@ -26,22 +26,43 @@ def scalar_flow():
             "B":[[x+d for x,d in zip(row,extra,strict=True)] for row,extra in zip(baseline["B"],change,strict=True)]}
 
 
-def verify_ground(values, intervals, trial_index, scale, allowance, spread_rate, *, logarithm=None, upper_values=None, stationary_readout=False):
+def verify_ground(values, intervals, trial_index, scale, allowance, spread_rate, *, logarithm=None, upper_values=None, stationary_readout=False, maximum_log_rates=None):
     lower = [v*v for v in values]
     upper = [v*v for v in (values if upper_values is None else upper_values)]
     exact_target = comp["model"]["target"]
     target = exact_target(11431,scale)
+    def centre(row):
+        mean = sum(row)/3
+        return [v-mean for v in row]
+
+    if maximum_log_rates is not None:
+        gauge_initial = [(1/(r*a)).union(1/(r*b)) for r,a,b in zip(ratios,lower,upper)]
+        contrast = centre(gauge_initial)
     offsets = [arb(0)]*3
     derivative_ranges = [arb(0)]*3
     if logarithm is not None:
         onset, end, offsets = logarithm
         assert onset < end < scale
         derivative_ranges = [arb(0).union(v/(end-onset)) for v in offsets]
+        if maximum_log_rates is not None:
+            derivative_ranges = [arb(0).union(v) for v in maximum_log_rates]
     for index,(start,stop,n,flow) in enumerate(intervals):
         step = (stop-start)/n
+        project = maximum_log_rates is not None and index <= trial_index
+        if project:
+            linear = centre([b/r for b,r in zip(flow["BETA"],ratios)])
+            gauge_rows, matter_rows = [
+                [centre([row[k]/r for row,r in zip(flow[name],ratios)]) for k in range(3)]
+                for name in ("B","D")]
         for i in range(n):
-            lower, lt = comp["advance"](lower,step,False,flow=flow,need_tube=True)
-            upper, ut = comp["advance"](upper,step,True,flow=flow,need_tube=True)
+            lower, lt, *li = comp["advance"](lower,step,False,flow=flow,need_tube=True,integrate_state=project)
+            upper, ut, *ui = comp["advance"](upper,step,True,flow=flow,need_tube=True,integrate_state=project)
+            if project:
+                ints = [a.union(b) for a,b in zip(li[0],ui[0])]
+                traces = [sum(ints[k:k+3]) for k in (3,6,9)]
+                for j in range(3):
+                    change = sum(b[j]*g-d[j]*t for b,g,d,t in zip(gauge_rows,ints,matter_rows,traces))
+                    contrast[j] -= 2*(linear[j]*step+change/loop)/loop
             if start+(i+1)*step >= 23:
                 # Upper X,Y corresponds to lower squared gauge coordinates.
                 g = [a.union(b) for a,b in zip(ut[:3],lt[:3],strict=True)]
@@ -85,12 +106,15 @@ def verify_ground(values, intervals, trial_index, scale, allowance, spread_rate,
         assert slope>6
         trial_mean = abs(sum(signed)/3)+q("1.3e-16")
         centred = [abs((2*signed[i]-signed[(i+1)%3]-signed[(i+2)%3])/3) for i in range(3)]
+        if maximum_log_rates is not None:
+            centred = [v.intersection(abs(c-delta)) for v,c,delta in zip(centred,contrast,centre(offsets))]
         location = (trial_mean+(d/m).sqrt()*allowance)/slope
         for _ in range(2):
             dispersion = [v+q(".182")*location for v in centred]
             mean_bound = d/m*q(".091")*sum(dispersion)/(3*slope)
             location = (trial_mean+mean_bound)/slope
-        assert mean_bound+max(centred)+q(".182")*location < arb(2)**-21
+        stationarity_error = mean_bound+max(centred)+q(".182")*location
+        assert stationarity_error < arb(2)**-21, stationarity_error
 
 
 def verify():

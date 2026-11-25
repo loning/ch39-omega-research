@@ -38,6 +38,11 @@ def verify():
     onset,h3,h8 = cal+e.log()/2,cal+triplet.log(),cal+octet.log()
     minimum,maximum,_ = flavour["charge_bounds"](*charges)
     assert weak/(h3-onset)<q(".001")
+    exclude(onset,h3,h8,minimum,maximum,weak,pair)
+
+
+def exclude(onset,h3,h8,minimum,maximum,weak,pair):
+    time = study["nominal"][2]
     for index,offset in enumerate((".00000266",".00000212")):
         trial = time+q(offset)
         lo = trajectory(index,False,onset,h3,h8,maximum,trial)

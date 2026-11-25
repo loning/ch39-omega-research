@@ -68,6 +68,12 @@ def verify():
         assert abs(tau*value-q(reference)) < q("1e-12")
     print("direct negative log determinants",*(v.str(12) for v in (tau*x for x in trace)))
     print("top singular-value loss limits",(tau*low[0]).str(12),(tau*high[0]).str(12))
+    verify_classification(logs,params,q(".00000007"),q("3.41e-7"))
+
+
+def verify_classification(logs,params,trial_shift,allowance,maximum_log_rates=None):
+    h3,_,cal = map(q,logs)
+    pole,_,low,high,_ = params
     for index,offset in enumerate((".00000266",".00000212")):
         time = cal+q(offset)
         lo,hi = [endpoint(index,upper,logs,params,time) for upper in (False,True)]
@@ -83,7 +89,7 @@ def verify():
                       +[q(row[2 if i==2 else (-1 if upper else 0)][0]).sqrt()
                         for i,row in enumerate(tables)])
     onset = cal+pole.log()/2
-    trial = cal+q(".00000007")
+    trial = cal+trial_shift
     sm = adjoint["flow"](False,False)
     h8 = q(logs[1])
     unit_box = arb(0).union(arb(2))
@@ -91,12 +97,14 @@ def verify():
         speeds = [-2*(beta+sum(b*unit_box-d*3*unit_box for b,d in zip(bs,ds))/comp["loop"])
                   /(ratio*comp["loop"]) for beta,bs,ds,ratio in
                   zip(flow["BETA"],flow["B"],flow["D"],adjoint["ratios"],strict=True)]
-        assert speeds[0]<0 and speeds[1]>params[1][1]/(h3-onset)>0
+        weak_rate = params[1][1]/(h3-onset) if maximum_log_rates is None else maximum_log_rates[1]
+        assert speeds[0]<0 and speeds[1]>weak_rate>0
     segments = ((q(0),onset,160,sm),(onset,h3,8,{**sm,"NEUTRAL_YUKAWA_BOUNDS":(high,low)}),
                 (h3,h8,30,adjoint["flow"](True,False)),(h8,trial,8,adjoint["flow"](True,True)),
                 (trial,q(33),64,adjoint["flow"](True,True)))
-    empirical["triplet"]["verify_ground"](inputs[0],segments,3,trial,q("3.41e-7"),q(".136"),
-        upper_values=inputs[1],logarithm=(onset,h3,params[1]),stationary_readout=True)
+    empirical["triplet"]["verify_ground"](inputs[0],segments,3,trial,allowance,q(".136"),
+        upper_values=inputs[1],logarithm=(onset,h3,params[1]),stationary_readout=True,
+        maximum_log_rates=maximum_log_rates)
 
 
 if __name__ == "__main__":

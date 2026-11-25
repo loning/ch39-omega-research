@@ -40,6 +40,12 @@ def light_current(logs):
     assert 1+(d_lower*d_lower/(h*h)+14*b*b)*gc(m3*m3,unit)<0
     assert 1+14*b*b*gr(m3*m3,unit)<0
 
+    shifts = [v*(m3/start.sqrt()).log() for v in gauge_rates(alpha,beta,family)]
+    scaled=[value/r for value,r in zip(shifts,(arb(24)/25,arb(16)/15,arb(1)))]
+    return start,scaled,(alpha,beta,family),shifts
+
+
+def gauge_rates(alpha,beta,family):
     # Y uses the unified normalization. Fields are Q, uc, dc, L, ec.
     indices = [
         (F(1,10),F(4,5),F(1,5),F(3,10),F(3,5)),
@@ -47,7 +53,7 @@ def light_current(logs):
         (1,F(1,2),F(1,2),0,0),
     ]
     shifts=[]
-    factor = 2*(m3/start.sqrt()).log()/(16*arb.pi()**2)**2
+    factor = 2/(16*arb.pi()**2)**2
     for row,higgs in zip(indices,(F(3,10),F(1,2),0)):
         total=arb(0)
         for x in (1,1,-2):
@@ -55,8 +61,7 @@ def light_current(logs):
                 total+=2*arb(t.numerator)/t.denominator*(dc*alpha+r*beta+sign*x*family)**2
         total+=4*arb(higgs.numerator)/higgs.denominator*beta**2
         shifts.append(total*factor)
-    scaled=[value/r for value,r in zip(shifts,(arb(24)/25,arb(16)/15,arb(1)))]
-    return start,scaled,(alpha,beta,family),shifts
+    return shifts
 
 
 def verify():
