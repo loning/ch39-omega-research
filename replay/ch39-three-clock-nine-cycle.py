@@ -1,5 +1,5 @@
 """用九环的二次代数数解实现截止 392 的最小辅助维数。"""
-from itertools import combinations
+from itertools import permutations
 from pathlib import Path
 from runpy import run_path
 
@@ -59,6 +59,7 @@ def verify():
              for i in range(n)]
     den = v**2
     row_bounds = [fmpq(0) for _ in range(n)]
+    residues = fmpq_mat(n, n), fmpq_mat(n, n)
     for i in range(n):
         for j in range(i, n):
             num = aa[i, j] * den + (ba[i, j] * y_num[i] + ba[j, i] * y_num[j]) * v
@@ -66,10 +67,15 @@ def verify():
             if distance(i, j) > 392:
                 assert (num - delta[i, j] * den) % p == 0
             line = num % p
+            for degree, m in enumerate(residues):
+                m[i, j] = m[j, i] = line[degree]
             bound = max(abs(line(left)), abs(line(right))) / lower_den
             row_bounds[i] += bound
             if i != j:
                 row_bounds[j] += bound
+    for perm in permutations(range(3)):
+        idx = [points.index(tuple(p[k] for k in perm)) for p in points]
+        assert all(m == submatrix(m, idx, idx) for m in residues)
     norm = max(row_bounds)
     assert norm < fmpq(1, 10**7)
     inverse_norm = max(sum(abs(z) for z in row) for row in g0.inv().tolist())
