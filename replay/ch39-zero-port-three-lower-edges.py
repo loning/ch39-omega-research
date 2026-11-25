@@ -1,4 +1,4 @@
-"""第一、第二角与 CP 相位都在窗口下边时，28% 外部谱质量的端口界。"""
+"""前两个角与 CP 相位同时触界时，从 11415 进入到 11416 退出的端口界。"""
 from pathlib import Path
 from runpy import run_path
 
@@ -8,7 +8,6 @@ prev = run_path(str(Path(__file__).with_name("ch39-zero-port-phase-branch.py")))
 box, study, sharp = (prev[k] for k in ("box", "study", "sharp"))
 S, T, h = sharp["S"], prev["T"], prev["half_tan"]
 K = (1-S)*(1-T)
-r = arb(7)/25
 zero_ids = (*prev["ids"], 11415)
 
 
@@ -28,7 +27,7 @@ def solve_centered(matrix,rhs):
     return guess+matrix.solve(rhs-matrix*guess)
 
 
-def candidate(coords,values):
+def candidate(coords,values,r):
     dif=rows_relative(values)
     # 用 11432 承担尚未分给另四个外部编号的权重，消去总质量方程。
     start=[a+r*(b-a) for a,b in zip(values[0],values[1])]
@@ -57,7 +56,7 @@ def candidate(coords,values):
         domain=domain.intersection(U)
         _,exterior,U,D=solve_at(domain)
     full=[1-r,r-sum(exterior),*exterior]
-    assert all(w>0 for w in full)
+    assert all(w>0 for w in full[:4])
     assert dot(full,[row[4] for row in values])>0
     return full,(U,D)
 
@@ -88,32 +87,51 @@ def verify():
     cube=[c+arb(0,delta) for c in box["centers"]]
     data=[box["tight_data"](t,box["centers"],[delta]*4) for t in inputs]
     rows,ds=zip(*data)
-    weights,ref=candidate(coords,rows)
-    _,beta,coeff=dual_plane(coords,costs,rows,ref,ref[0])
-    signs=[]
-    for k in range(4):
-        deriv=-sum(w*dot(coeff,der[k]) for w,der in zip(weights,ds))
-        assert 0 not in deriv
-        signs.append(-1 if deriv>0 else 1)
-    print("Minimizing flavor endpoint signs",signs,flush=True)
+    determinant_sign=None
+    planes=None
+    signs=(1,-1,-1,-1)
+    for k in range(100):
+        # 覆盖 27.7% 到 28.2%，允许与转折相邻的辅助解带符号。
+        outside=arb(5540+k).union(5541+k)/20000
+        weights,ref=candidate(coords,rows,outside)
+        uc,dc=ref
+        phase=[0,0,-h*(K*(1-2*uc)+dc-S*T),h*(1-uc),1]
+        dif=rows_relative(rows)
+        def features(row):
+            a,b,u,d,j=row
+            return [a+S*u,b+T*u,dot(phase,row)]
+        mat=arb_mat([[coords[i]-coords[1],*features(dif[i])] for i in range(2,6)])
+        speeds=solve_centered(mat.transpose(),arb_mat([[v] for v in [-coords[1],*features(dif[0])]]))
+        assert speeds[2,0]<0<speeds[3,0]
+        for tangent,u in ((True,uc),(False,sharp["lo"]),(False,sharp["hi"])):
+            det,beta,coeff=dual_plane(coords,costs,rows,ref,u)
+            assert 0 not in det
+            if determinant_sign is None:
+                determinant_sign=det>0
+            assert (det>0)==determinant_sign
+            assert 1-theta*scale*beta>0 and 1+(1-theta)*scale*beta>0
+            if tangent:
+                for j,s in enumerate(signs):
+                    deriv=-sum(w*dot(coeff,der[j]) for w,der in zip(weights,ds))
+                    assert -s*deriv>0,(outside.str(9),j,deriv.str(9))
+            point=[beta,*coeff]
+            planes=point if planes is None else [a.union(b) for a,b in zip(planes,point)]
     corner=[c+sign*delta for c,sign in zip(box["centers"],signs)]
     best=[box["flavor_data"](t,corner)[0] for t in inputs]
-    for t in (arb(0),arb(1)/2,arb(1)):
-        ws,_=candidate([x+t*scale*y for x,y in zip(xs,costs)],best)
-        optimum=dot(ws,costs)
-        print("Direction",t.str(3),"gauge tolerance",(t*scale*optimum).str(19),
-              "port tolerance",((1-t)*strength*optimum).str(19),
-              "weights",*[w.str(14) for w in ws],flush=True)
-    planes=[]
-    determinant_signs=[]
-    for u in (sharp["lo"],sharp["hi"]):
-        det,beta,coeff=dual_plane(coords,costs,rows,ref,u)
-        assert 0 not in det
-        determinant_signs.append(det>0)
-        assert 1-theta*scale*beta>0 and 1+(1-theta)*scale*beta>0
-        planes.append([beta,*coeff])
-    assert determinant_signs[0]==determinant_signs[1]
-    beta,*coeff=[a.union(b) for a,b in zip(*planes)]
+    for t in (theta,arb(0),arb(1)/2,arb(1)):
+        v=[x+t*scale*y for x,y in zip(xs,costs)]
+        def distribution(r):
+            return candidate(v,best,r)[0]
+        entry=prev["bracket"](lambda r: -distribution(r)[5],".277",".278")
+        exit_point=prev["bracket"](lambda r: distribution(r)[4],".280",".282")
+        for name,r in (("entry",entry),("28 percent",arb(7)/25),("exit",exit_point)):
+            ws=distribution(r)
+            optimum=dot(ws,costs)
+            print("Direction",t.str(3),name,"outside",r.str(19),
+                  "gauge tolerance",(t*scale*optimum).str(19),
+                  "port tolerance",((1-t)*strength*optimum).str(19),
+                  "weights",*[w.str(12) for w in ws],flush=True)
+    beta,*coeff=planes
     def slack(x,c,obs):
         diff=[a-b for a,b in zip(obs,rows[1])]
         return c-costs[1]-beta*(x+theta*scale*c-coords[1])-dot(coeff,diff)
