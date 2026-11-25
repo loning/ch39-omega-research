@@ -53,7 +53,7 @@ def base_tests(projectors):
     return tests
 
 
-def integrated_bounds(data, tests, norm_bonus, center_price, cell_count, center_limit):
+def integrated_bounds(data, tests, norm_bonus, center_price, cell_count, center_limit, budget_factor=1):
     point, scale, eps, eta, center_response, modes, _, _ = data
     cost, *_ = local["support"]["prev"]["setup"]()
     cap = 2*eps/scale
@@ -122,7 +122,7 @@ def integrated_bounds(data, tests, norm_bonus, center_price, cell_count, center_
         price = center_price.get(name, max(arb(0), -min(row)))
         row = [max(v, -price) for v in row]
         correction = center_limit*price
-        bounds[name] = sum(row)/cell_count + abs(g)*10000*eps + h + correction
+        bounds[name] = sum(row)/cell_count + budget_factor*(abs(g)*10000*eps + h) + correction
     return bounds
 
 
