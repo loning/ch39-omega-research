@@ -30,6 +30,15 @@ def sorted_readings(left, right, profile, conjugate):
     return entries
 
 
+def spanning_tree(rotation):
+    tree = set()
+    for i,j in ((0,2),(1,14),(6,13),(9,2),(10,15),(11,2)):
+        for _ in range(3):
+            tree.add(tuple(sorted((i,j))))
+            i,j = rotation[i],rotation[j]
+    return tree
+
+
 def verify():
     ctx.prec = 224
     root = Path(__file__).parent
@@ -50,11 +59,7 @@ def verify():
             matter[q].append(mode)
 
     edges = {(i,j) for i,j,_,_ in shell["geo"]["edges"]}
-    tree = set()
-    for i,j in ((0,2),(1,14),(6,13),(9,2),(10,15),(11,2)):
-        for _ in range(3):
-            tree.add(tuple(sorted((i,j))))
-            i,j = rotation[i],rotation[j]
+    tree = spanning_tree(rotation)
     assert len(tree) == 18 and len(edges) == 135 and tree <= edges
     connected = {14}
     for _ in range(18):
