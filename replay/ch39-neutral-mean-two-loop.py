@@ -8,18 +8,9 @@ from flint import arb, arb_mat, ctx
 ROOT=Path(__file__).parent
 
 
-def verify():
-    model,_,rows,initial,weights=run_path(str(ROOT/"ch39-neutral-mean-local-mass.py"))["inputs"]()
-    running=run_path(str(ROOT/"ch39-two-tier-dirac-running.py"))["integrate_segments"]
-    sm=run_path(str(ROOT/"ch39-two-loop-shell-separation.py"))
-    ctx.prec=192
+def active_phases(sm,weights,light):
     q=sm["q"]
-    light=rows[:6]
-    assert [c for _,c in light]==[1,1,3,1,4,3]
-    assert all(x[0]<y[0] for x,y in zip(light,light[1:]))
     b=sm["BETA"]
-    matrix=arb_mat([[b[i],sum(weights[c][i] for _,c in light),2*arb.pi()] for i in range(3)])
-    base=[2*arb.pi()*a+sum(weights[c][i]*v.log() for v,c in light) for i,a in enumerate(initial)]
     # 每个活动模有三份 Dirac。|q|=3 时另有一个复标量弱双重态。
     B=sm["B"]
     beta=b
@@ -35,6 +26,21 @@ def verify():
         beta=[v+k for v,k in zip(beta,weights[c])]
         B=[[v+k for v,k in zip(r,dr)] for r,dr in zip(B,add)]
         phases.append((beta,B))
+    return phases
+
+
+def verify():
+    model,_,rows,initial,weights=run_path(str(ROOT/"ch39-neutral-mean-local-mass.py"))["inputs"]()
+    running=run_path(str(ROOT/"ch39-two-tier-dirac-running.py"))["integrate_segments"]
+    sm=run_path(str(ROOT/"ch39-two-loop-shell-separation.py"))
+    ctx.prec=192
+    light=rows[:6]
+    assert [c for _,c in light]==[1,1,3,1,4,3]
+    assert all(x[0]<y[0] for x,y in zip(light,light[1:]))
+    b=sm["BETA"]
+    matrix=arb_mat([[b[i],sum(weights[c][i] for _,c in light),2*arb.pi()] for i in range(3)])
+    base=[2*arb.pi()*a+sum(weights[c][i]*v.log() for v,c in light) for i,a in enumerate(initial)]
+    phases=active_phases(sm,weights,light)
 
     def times_image(L,t,steps):
         assert (rows[5][0].log()<t<rows[6][0].log())
