@@ -81,6 +81,7 @@ def verify(*, singlet_clocks=False):
           "错计次、错编号的指数下界",count_gap.str(11),label_gap.str(11),
           "取向缺额",chi_error.str(10))
     assert count_gap>14000 and label_gap>790000 and chi_error<q("3e-10")
+    return count_power,min(label_powers),e,reverse
 
 
 if __name__ == "__main__":
