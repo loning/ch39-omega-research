@@ -25,10 +25,8 @@ def rational_log(value):
     return ball(partial).union(ball(partial+tail))
 
 
-def gaussian_spectrum(count):
-    assert count >= 2 and count%2 == 0
-    order = count//2
-    xs = [1+Fraction(2*i,count) for i in range(1,count+1)]
+def divided_moments(xs):
+    count = len(xs)
     factors = [fmpq_poly([1,fmpq(a.numerator,a.denominator)]) for a in (x-1 for x in xs)]
     denominator = fmpq_poly([1])
     for factor in factors:
@@ -36,8 +34,12 @@ def gaussian_spectrum(count):
     basis = [denominator//factor for factor in factors]
     moments = arb_mat([[row[j] for j in range(count)] for row in basis]).solve(
         arb_mat([[rational_log(x)/ball(x-1)] for x in xs]))
-    hankel = arb_mat([[moments[i+j,0] for j in range(order)] for i in range(order)])
-    coefficients = hankel.solve(arb_mat([[-moments[i+order,0]] for i in range(order)]))
+    return moments, arb_poly(denominator)
+
+
+def gaussian_nodes(moments, order):
+    hankel = arb_mat([[moments[i+j] for j in range(order)] for i in range(order)])
+    coefficients = hankel.solve(arb_mat([[-moments[i+order]] for i in range(order)]))
     polynomial = arb_poly([*coefficients.entries(),arb(1)])
     nodes = []
     for z in polynomial.complex_roots(tol=1e-30):
@@ -45,12 +47,20 @@ def gaussian_spectrum(count):
         nodes.append(z.real)
     nodes.sort(key=float)
     assert len(nodes)==order and all(a<b for a,b in zip(nodes,nodes[1:]))
+    return nodes
+
+
+def gaussian_spectrum(count):
+    assert count >= 2 and count%2 == 0
+    order = count//2
+    xs = [1+Fraction(2*i,count) for i in range(1,count+1)]
+    moments, den = divided_moments(xs)
+    nodes = gaussian_nodes(moments.entries(),order)
     vandermonde = arb_mat([[s**i for s in nodes] for i in range(order)])
     weights = vandermonde.solve(arb_mat([[moments[i,0]] for i in range(order)])).entries()
     assert min(weights)>0
     for i in range(count):
         assert abs(sum(w*s**i for w,s in zip(weights,nodes))-moments[i,0]) < arb("1e-22")
-    den = arb_poly(denominator)
     weighted = [w*den(s) for w,s in zip(weights,nodes,strict=True)]
     for x in xs:
         reconstructed = sum(w*ball(x-1)/(1+ball(x-1)*s) for s,w in zip(nodes,weighted))
