@@ -40,6 +40,18 @@ def support(i, j):
     return i >= 1 and (i >= 3 or 19-j-i >= 2)
 
 
+def mass_wronskian(differences, denominator):
+    wronskian = defaultdict(arb)
+    for (i, j), diff in differences.items():
+        for (l, k), value in denominator.items():
+            if k != j and (l, k) != (0, 0):
+                wronskian[i+l, j+k-1] += (k-j)*diff*value
+    # At e^18 each determinant has the common factor x+18 from the pole.
+    # Its contribution at e^36 therefore cancels in the mass derivative.
+    assert wronskian.pop((36, 0)).contains(0)
+    return wronskian
+
+
 def contrast(index, weight, mass2):
     h = acb.zeta_zero(index).imag
     base = soft["vector_pencil"](h)[0]+mass2*soft["identity"]
@@ -63,15 +75,8 @@ def verify():
             else:
                 assert difference.contains(0)
         assert len(differences) == 185
-        wronskian = defaultdict(arb)
-        for (i, j), diff in differences.items():
-            for (l, k), value in tables[b].items():
-                if k != j and (l, k) != (0, 0):
-                    wronskian[i+l, j+k-1] += (k-j)*diff*value
-        # At e^18 each determinant has the common factor x+18 from the pole.
-        # Its contribution at e^36 therefore cancels in the mass derivative.
-        assert wronskian.pop((36, 0)).contains(0)
-        assert len(wronskian) == 696 and all(v > 0 for v in wronskian.values())
+        derivative = mass_wronskian(differences, tables[b])
+        assert len(derivative) == 696 and all(v > 0 for v in derivative.values())
     five, ten = contrast(11431, arb(1), arb(0))
     assert five < -arb(".0164") and ten < -arb(".0869")
     other_five = contrast(35, arb(1), arb(0))[0]
