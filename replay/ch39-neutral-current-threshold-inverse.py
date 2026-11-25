@@ -53,7 +53,7 @@ def verify():
     print("20 ppb current windows: log errors in M3, M8, g_X",*(v.str(10) for v in logs))
 
 
-def exclude_lower_tops(triplet,octet,c,beta,eta,g2,log_scale):
+def first_window(triplet,octet,c,beta,eta,g2):
     # Insert the inferred coupling into the physical mass equation, allowing
     # it to vary independently of the site coupling.
     unit,colour,right_green=study["ports"][-3:]
@@ -75,6 +75,11 @@ def exclude_lower_tops(triplet,octet,c,beta,eta,g2,log_scale):
     ww=g2/(2*beta)
     assert 1+(d2/h2+ww/2)*colour(triplet**2,unit)<0
     assert 1+ww/2*right_green(triplet**2,unit)<0
+    return energy,(a,b,f),weak,pair
+
+
+def exclude_lower_tops(triplet,octet,c,beta,eta,g2,log_scale):
+    _,_,weak,pair = first_window(triplet,octet,c,beta,eta,g2)
     for index,offset in enumerate((".00000266",".00000212")):
         time=study["nominal"][2]+q(offset)
         h3=log_scale+triplet.log()

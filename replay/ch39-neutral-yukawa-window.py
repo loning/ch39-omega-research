@@ -14,13 +14,17 @@ comp, adjoint = study["comp"], study["adjoint"]
 
 def charges(logs):
     pole, offsets, (alpha,beta,family), _ = retuned["current"]["light_current"](logs)
+    return pole,offsets,*charge_bounds(alpha,beta,family)
+
+
+def charge_bounds(alpha,beta,family):
     couplings = {name:[(d*alpha+r*beta+sign*x*family)**2 for x in (1,-2)]
                  for name,(d,r,sign) in retuned["current"]["weyl_charges"].items()}
     pairs = [(couplings[a],couplings[b]) for a,b in (("Q","uc"),("Q","dc"),("L","ec"))]
     low = [min(left)+min(right) for left,right in pairs]
     high = [max(left)+max(right) for left,right in pairs]
     trace = [sum(2*s[0]+s[1] for s in pair) for pair in pairs]
-    return pole,offsets,low,high,trace
+    return low,high,trace
 
 
 @lru_cache(None)

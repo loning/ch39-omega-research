@@ -106,7 +106,7 @@ def locate(readings):
     return L,z,rho,eta
 
 
-def verify():
+def inferred_parameters():
     g, u, w, _, _, active = study["ports"][:6]
     exact = [1+(x/g**2+4/(1/(2*w**2)+active(-x)))/(18*u**2) for x in (*nodes,extra_node)]
     error = arb(0,q("1e-9").upper())
@@ -125,6 +125,12 @@ def verify():
     assert target>q("3.29402558")>study["comp"]["model"]["target"](11432,time)
     assert abs(L.log())/2 < q("3.233e-8")
     masses = four["physical_masses"](c,rho,z)
+    return exact,target,L,z,rho,eta,c,masses
+
+
+def verify():
+    exact,target,L,z,rho,eta,c,masses = inferred_parameters()
+    time = study["nominal"][2]
     thresholds = run_path(str(root/"ch39-neutral-current-threshold-inverse.py"))
     thresholds["exclude_lower_tops"](*masses,c,z/rho,eta,1/rho,time+L.log()/2)
     print("five normalized inverse-current readings",*(v.str(15) for v in exact))
