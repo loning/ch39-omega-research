@@ -1,4 +1,5 @@
 """在平方弦距截止 244 上用一个五维外点实现和一张二维平面补全三时钟响应。"""
+from functools import cache
 from itertools import combinations, permutations
 from pathlib import Path
 from runpy import run_path
@@ -10,27 +11,36 @@ previous = pairs["previous"]
 outer, centre = pairs["outer"], pairs["centre"]
 
 
-def prepare(t):
+@cache
+def shell_data():
     _, _, _, g0, g1, g2 = previous["MEM"]["coefficients"]()
     delta = 10**10*(g2-g1*g0.solve(g1))
     local = previous["LOCAL"]
     points = sorted(local["shell_grid"](1) | {(17,17,17)})
     distance = [[local["squared"](p,q) for q in points] for p in points]
-    gram = pairs["projected_outer_gram"](delta,t)
-    metric = fmpq_mat(7,7)
+    initial = pairs["projected_outer_gram"](delta,0)
+    slope = pairs["projected_outer_gram"](delta,1)-initial
+    return points,distance,g0,delta,initial,slope
+
+
+def prepare(t):
+    points,distance,g0,delta,initial,slope = shell_data()
+    matrix = arb_mat if isinstance(t,arb) else fmpq_mat
+    gram = matrix(initial)+t*matrix(slope)
+    metric = matrix(7,7)
     for i in range(6):
         for j in range(6):
             metric[i,j] = gram[i,j]
     metric[6,6] = t
-    base, direction = fmpq_mat(19,7), fmpq_mat(19,7)
+    base, direction = matrix(19,7), matrix(19,7)
     for k,i in enumerate(outer):
         base[i,k] = base[i,6] = 1
     base[centre,6] = delta[centre,outer[0]]/t
     for i in set(range(19))-set(outer)-{centre}:
         fixed = [k for k,j in enumerate(outer) if distance[i][j]>296]
         assert len(fixed)==4
-        rhs = fmpq_mat([[delta[i,outer[k]],-t] for k in fixed])
-        columns = pairs["submatrix"](gram,fixed,fixed).solve(rhs)
+        rhs = matrix([[delta[i,outer[k]],-t] for k in fixed])
+        columns = matrix([[gram[k,l] for l in fixed] for k in fixed]).solve(rhs)
         for j,k in enumerate(fixed):
             base[i,k], direction[i,k] = columns[j,0], columns[j,1]
         direction[i,6] = 1
