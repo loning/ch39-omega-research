@@ -25,7 +25,7 @@ def spectral_modes(response,coefficients):
     return [(mean+sgn*gap,(ident+sgn*traceless/gap)/2) for sgn in (-1,1)]
 
 
-def exclusion(order,atoms,modes,shares,end,tolerances):
+def exclusion(order,atoms,modes,shares,end,tolerances,start=None):
     # 当前外部质量为 r，各段时长为 (1-r, r w, r(1-w))。
     drift=[-1,*shares]
     basis=flavor["basis"]
@@ -40,7 +40,7 @@ def exclusion(order,atoms,modes,shares,end,tolerances):
         speed=sum(x*v for x,v in zip(drift,lam))
         terms.append((lam[0],speed,[vals[i,j] for i,j in entries]))
     radii=[sum(abs(speed)*abs(col[k]) for _,speed,col in terms) for k in range(4)]
-    boxes=[(arb(1)/3,end)]
+    boxes=[(arb(1)/3 if start is None else start,end)]
     count=0
     while boxes:
         lo,hi=boxes.pop()
