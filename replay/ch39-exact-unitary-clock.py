@@ -134,6 +134,12 @@ def verify():
     print("Fixed integer clock",ticks,"gauge error upper",fixed_gauge.upper().str(10),
           "matrix error upper",fixed_error.upper().str(10))
     assert fixed_gauge < arb("1e-13") and fixed_error < arb("1e-9")
+    _, derivatives = evaluate(times,cube,coeff_derivatives=True)
+    slope = derivatives[1][0,1].imag
+    assert slope < arb("-.000342")
+    separation = -2*coeff_radius*slope
+    assert separation > arb("2.54e-12")
+    print("Two endpoint calibrations, imaginary off-diagonal difference above",separation.lower().str(12))
     return times
 
 
