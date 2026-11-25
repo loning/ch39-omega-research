@@ -10,6 +10,16 @@ selector = run_path(str(root/"ch39-port-coupling-competition.py"))
 G = heavy["green"]
 
 
+def attaining_weights(phase):
+    p,q = arb(5)/26,arb(21)/26
+    rays = [G[1,13],G[1,17],phase*G[1,16],phase.conjugate()*G[1,1]]
+    system = arb_mat([[1,1,0,0],[0,0,1,1],
+                      [v.real for v in rays],[v.imag for v in rays]])
+    weights = system.solve(arb_mat([[p],[q],[0],[0]])).entries()
+    assert all(t>0 for t in weights)
+    return weights
+
+
 def verify():
     ctx.prec = 192
     selected = selector["prepare"]()
@@ -22,11 +32,7 @@ def verify():
     span = 2*arb.pi()-5*arb(".892")+spread
     assert smallest*(span/2).cos() > arb(".01120")
 
-    rays = [G[1,13],G[1,17],phase*G[1,16],phase.conjugate()*G[1,1]]
-    system = arb_mat([[1,1,0,0],[0,0,1,1],
-                      [v.real for v in rays],[v.imag for v in rays]])
-    weights = system.solve(arb_mat([[p],[q],[0],[0]])).entries()
-    assert all(t>0 for t in weights)
+    weights = attaining_weights(phase)
     threshold = weights[3]
     assert arb(".13675218914066") < threshold < arb(".13675218914067")
     critical = {1,2,5}
