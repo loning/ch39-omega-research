@@ -80,6 +80,9 @@ def verify():
                 moments.append((z*rms*rms+(-err).union(err))/vacuum)
             y, w, c = moments
             ratios = [12*y/w, c/(4*w)]
+            if steps == 2 and not flat:
+                assert arb("60.29235") < ratios[0] < arb("60.29245")
+                assert arb(".9987274") < ratios[1] < arb(".9987286")
             scale, strong = grid["one_loop"](ratios)
             assert arb(".07078") < strong < arb(".07104")
             results.append((ratios[0], ratios[1], strong))
