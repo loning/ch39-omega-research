@@ -29,8 +29,8 @@ def index_table():
     return {q:[int(t) for t in row] for q,row in rows.items()}
 
 
-def shell_spectra(charges=(0, 5, 10)):
-    height = acb.zeta_zero(11431).imag
+def shell_spectra(charges=(0, 5, 10), zero_index=11431):
+    height = acb.zeta_zero(zero_index).imag
     base, neutral, _ = soft["vector_pencil"](height)
     matrix = base+neutral
     integer = fmpz_mat([[int(t.real.unique_fmpz()) for t in row] for row in matrix.tolist()])

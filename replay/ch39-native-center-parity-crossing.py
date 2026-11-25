@@ -17,8 +17,8 @@ beta = [q("41/10"),q("-19/6"),arb(-7)]
 mz = arb("91.1876")
 
 
-def setup():
-    all_levels = shell["shell_spectra"]((0,*charges))
+def setup(zero_index=11431):
+    all_levels = shell["shell_spectra"]((0,*charges), zero_index=zero_index)
     levels = {0:all_levels[0]}
     for charge in charges:
         ordered = sorted(all_levels[charge],key=float)
@@ -30,19 +30,23 @@ def setup():
     return levels,radius
 
 
-def intercept(levels,radius,u,Lmin,factor=1):
+def intercept(levels,radius,u,Lmin,factor=1,color_inverse=None,fermion_weight=3,higgs_levels=None):
     em,weak = arb("127.930"),arb(".23129")
-    initial = (3*(1-weak)*em/5,weak*em,1/arb(".1180"))
+    if color_inverse is None:
+        color_inverse = 1/arb(".1180")
+    initial = (3*(1-weak)*em/5,weak*em,color_inverse)
     ref2 = radius**2*(-2*Lmin).exp()
-    def integral(charge,kind):
-        masses = [v/u if charge in (1,3) else v*u for v in levels[charge]]
+    def integral(charge,kind,spectrum=None):
+        if spectrum is None:
+            spectrum = levels[charge]
+        masses = [v/u if charge in (1,3) else v*u for v in spectrum]
         kernel = {"H":scalar,"V":lambda v,t:sheet(v,t,True),"F":lambda v,t:sheet(v,t,False)}[kind]
         # All angular measures have unit mass and (1-y²)/4 <= 1/4.
         bound = sum(ref2/(8*v) for v in masses)
         return sum(kernel(v,(radius*factor)**2) for v in masses)-arb(0).union(bound.upper())
     f = [integral(charge,"F") for charge in charges]
-    v,h = integral(0,"V"),integral(3,"H")
-    return [a+7*n*v/(4*arb.pi())-(b*h+3*sum(row[i]*x for row,x in zip(weyl,f)))/(2*arb.pi())
+    v,h = integral(0,"V"),integral(3,"H",higgs_levels)
+    return [a+7*n*v/(4*arb.pi())-(b*h+fermion_weight*sum(row[i]*x for row,x in zip(weyl,f)))/(2*arb.pi())
             for i,(a,n,b) in enumerate(zip(initial,(0,2,3),higgs))]
 
 
