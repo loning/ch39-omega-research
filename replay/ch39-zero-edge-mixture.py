@@ -8,6 +8,32 @@ from flint import acb, acb_mat, arb, arb_poly, ctx
 memory = run_path(str(Path(__file__).with_name("ch39-three-clock-minimal-memory.py")))
 
 
+def phase_tolerance(left, target, right):
+    chord = left-right
+    normal = acb(0, 1)*chord/abs(chord)
+    if (normal.conjugate()*(target-right)).real < 0:
+        normal = -normal
+    rotated = normal.conjugate()*target
+    m, k = rotated.real, rotated.imag
+    boundary = (normal.conjugate()*right).real
+    distance = m-boundary
+    assert m > 0 and boundary > 0 and distance > 0 and k < 0
+    # u=tan(|角误差|/2)。有理化的正根避免两近数相减。
+    u = distance/(abs(k)+(k*k+(m+boundary)*distance).sqrt())
+    assert 0 < u < 1
+    box = arb(0).union(-u)
+    def factor(t):
+        return acb(1, t)/acb(1, -t)
+    projection = ((factor(box)*target-right)/chord).real
+    assert 0 < projection < 1
+    endpoint = (factor(-u)*target-right)/chord
+    assert endpoint.imag.contains(0) and 0 < endpoint.real < 1
+    angle = 2*u.atan()
+    assert arb("3.09312498382782e-12") < angle < arb("3.09312498382783e-12")
+    print("First relative phase ambiguity (rad):", angle.str(24),
+          "left-neighbor weight:", endpoint.real.str(24))
+
+
 def verify():
     ctx.prec = 384
     _, _, _, g0, g1, g2 = memory["coefficients"]()
@@ -80,6 +106,7 @@ def verify():
                 assert error.overlaps(gap)
             else:
                 assert error < gap
+    phase_tolerance(left[edge], target[edge], right[edge])
     print("Optimal maximum entry gap at clock 1:", gap.str(25),
           "weight on 11430:", weight.str(25))
 
