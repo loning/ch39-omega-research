@@ -8,7 +8,7 @@ root = Path(__file__).parent
 q = arb
 
 
-def verify():
+def verify(*, singlet_clocks=False):
     ctx.prec = 128
     heat_low, heat = q("1.25e-18"),q("5e-18")
     h_low, h_high = q("5e-18"),q("1e-17")
@@ -23,8 +23,9 @@ def verify():
     e = chord(delta)/length
     reverse = chord(alpha+length*theta)/length
     assert 0 < delta < theta/2
-    assert 4*(3*q.pi()/2)*h_high < q("2e-16")
-    assert 4*q("2.0794")*h_low > q("1e-17")
+    components = 1 if singlet_clocks else 4
+    assert components*(3*q.pi()/2)*h_high < q("2e-16")
+    assert components*q("2.0794")*h_low > q("1e-17")
     slope = 3/(1+q(3)/8)**2
     early = slope*4*(theta/2).sin()*min((delta+theta/2).sin().lower(),alpha.sin().lower())/length-q("2e-16")
     middle = slope*(chord(theta-delta)/(length+21000)-e)
@@ -56,14 +57,17 @@ def verify():
     field_sq = (1+coord*heat.sqrt())**2
     assert 2*coord+q(2).sqrt()*coord**2*heat.sqrt() < q(".41")
     box_energy = q(".41")**2*(6*q("7.5")+9*6+9*(k_max+q(4)/3)+12)
-    linear = 15*6*(16*field_sq-8)+(k_max+2)*24*field_sq
-    quadratic = 15*6*32+(k_max+2)*48
+    path_cost = k_max + (30 if singlet_clocks else 2)
+    linear = 15*6*(16*field_sq-8)+path_cost*24*field_sq
+    quadratic = 15*6*32+path_cost*48
     packet_energy = 4*(150+linear/10+quadratic*h_high/100)
     span = 15*q(2).log()-60*(box**2*heat_low).log()+box_energy+packet_energy
 
     # 对所有十四个顶点取 Haar 平均。用平均能量估计每个单位李代数方向的绝对荷。
-    energy = 3*e+2*heat*(span+60*q(2).log()+24*(length-1)*(2*q(2).cosh()).log())
-    radius_sq = q(45)/2+12*length+(q(length)**2+q(length)/2+q(1)/8)*energy
+    energy = 3*e+2*heat*(span+60*q(2).log()+6*components*(length-1)*(2*q(2).cosh()).log())
+    radius_sq = q(45)/2+energy/8
+    if not singlet_clocks:
+        radius_sq += 12*length+(q(length)**2+q(length)/2)*energy
     charge = (4*energy*radius_sq/h_low**2).sqrt()
     angle = 1/(28*charge)
     assert 0 < angle < q.pi()/2
