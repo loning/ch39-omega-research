@@ -47,9 +47,11 @@ def verify():
             abs(h-1).upper()**2 + h.upper()*chord(b-p*theta)
             for h,b in zip(products,directions))/p
         budget = trial_static.upper() + cold*(p-1)
+        assert trial_static < arb('1.4e-19') and budget < arb('4e-19')
         assert a.lower()-(2*budget/weak).sqrt() > arb(".9999")
         width = (2*budget/strong).sqrt()
         z = [a+arb(0,width.upper()),a+arb(0,width.upper()),arb(1, width.upper())]
+        assert all(s > arb('.9999') and s < arb('1.0001') for s in z)
         all_radii.append(z)
         gap = (budget/(closure*energy)).sqrt()
         # 对每条边先用闭合残差控制对边的长度，再用余弦定理。
