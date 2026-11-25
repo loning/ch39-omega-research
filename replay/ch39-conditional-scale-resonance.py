@@ -102,6 +102,7 @@ def verify():
                +cycles*((-q(23000)).exp()+(-q(20000)).exp()+(-q(64)).exp()))
     assert failure < q("3e-23")
     print("任意初始尺度的失败概率上界",failure.upper().str(10))
+    return shifts, reference, mean, pairs
 
 
 if __name__ == "__main__":
