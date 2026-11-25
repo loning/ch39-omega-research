@@ -104,6 +104,34 @@ def relative_curvature(matrices, pole, orbit, weight, c):
     return total/(8*arb.pi()**2)
 
 
+def other_spoke_forces(matrices, pole, orbit, weight, c, neighbors):
+    sine = (1-c*c).sqrt()
+    def determinant(matrix):
+        a,b,d = spoke_polynomials(matrix,pole,orbit,weight,acb(1))
+        return a+b*c+d*sine
+    denominators = {q:determinant(matrix) for q,matrix in matrices.items()}
+    rows = []
+    for extra in soft["star"]["charged"]["orbits"][1:]:
+        free = arb(0)
+        for q,matrix in matrices.items():
+            moved = []
+            for sign in (1,-1):
+                m = acb_mat(matrix)
+                for j in extra:
+                    assert m[pole,j] == -1
+                    m[pole,j] = acb(0,-sign)
+                    m[j,pole] = m[pole,j].conjugate()
+                moved.append(determinant(m))
+            numerator = (moved[1]-moved[0])*arb(".5")
+            assert all(numerator[k].contains(0) for k in (17,18,19))
+            numerator = arb_poly(numerator.coeffs()[:17])
+            free += {0:33,5:18,10:3}[abs(q)]*integrate_force(numerator,denominators[q],"2e-5")
+        triangles = sum(k in neighbors[j] for k in orbit for j in extra)
+        squares = sum(len(neighbors[j]&neighbors[k]) for k in orbit for j in extra)
+        rows.append((triangles,squares,free/(8*arb.pi()**2*sine)))
+    return rows
+
+
 def verify():
     ctx.prec = 224
     h = acb.zeta_zero(11431).imag
@@ -246,6 +274,33 @@ def verify():
     assert arb(".1170") < both_relative < arb(".1173")
     print("Triangles and squares: coefficient per loop, transverse curvature",
           both_weight.str(11),both_relative.str(11))
+    rows = other_spoke_forces({0:base+neutral, **signed},pole,orbit,1-change,cbox,neighbors)
+    for n3,n4,derivative in rows:
+        print("Extra radial orbit: triangle and square count, free angular force / sine",
+              n3,n4,derivative.str(10))
+    orbits = soft["star"]["charged"]["orbits"]
+    swap = {9:10, 10:9, 13:16, 16:13, 15:17, 17:15}
+    idx = lambda j: swap.get(j,j)
+    assert {tuple(sorted((idx(j),idx(k)))) for j,k in edges} == edges
+    assert idx(pole) == pole and all(idx(j) == j for j in orbit)
+    assert {idx(j) for j in orbits[3]} == set(orbits[4])
+    assert rows[2][2]-rows[3][2] > arb(".0008")
+    # The differential Ward identity is exact: a common shift of every spoke
+    # is a vertex gauge transformation at the pole.
+    assert (sum(row[2] for row in rows)-force).contains(0)
+
+    lengths = {(i,j): d for i,j,d,_ in geo["edges"]}
+    def length(i,j):
+        return lengths[tuple(sorted((i,j)))]
+    shapes = []
+    for extra in orbits[1:]:
+        shapes.append(Counter(tuple(sorted((length(pole,i),length(pole,j),length(i,j))))
+                              for i in orbit for j in extra if j in neighbors[i]))
+    unique = [(32,544,544),(68,244,544),(136,216,544),(136,296,544),(136,152,544)]
+    for i,shape in enumerate(unique):
+        assert all(counts[shape] == 3*int(k==i) for k,counts in enumerate(shapes))
+        assert rows[i][2] > 0
+    print("Five metric triangle weights for radial stationarity", *[(r[2]/3).str(7) for r in rows])
 
 
 if __name__ == "__main__":
