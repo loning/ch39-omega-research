@@ -1,6 +1,7 @@
 """原生群上相同有限阶圆弧展开与不同的两面精确积分。"""
 from collections import defaultdict
 from fractions import Fraction
+from itertools import combinations
 from math import prod
 
 F = Fraction
@@ -22,6 +23,42 @@ def index(rep):
     return (q*q,weak[w][1],colour[c][1])
 
 
+def rectangle_cover(width, height):
+    def shift(v, axis, step):
+        return tuple(x+step if k==axis else x for k,x in enumerate(v))
+    def edges(v,i,j):
+        return {(v,i),(v,j),(shift(v,i,1),j),(shift(v,j,1),i)}
+    tiles = {((x,y,0,0),0,1) for x in range(width) for y in range(height)}
+    perimeter = set()
+    for tile in tiles:
+        perimeter.symmetric_difference_update(edges(*tile))
+    adjacent = set()
+    for v,i in perimeter:
+        for j in range(4):
+            if j!=i:
+                a,b = sorted((i,j))
+                adjacent.update(((v,a,b),(shift(v,j,-1),a,b)))
+    overlap = {face:len(perimeter & edges(*face)) for face in adjacent}
+    largest = max(overlap.values())
+    assert len(perimeter) == len(tiles)*largest
+    assert {face for face in adjacent if overlap[face]==largest} == tiles
+    return len(adjacent)
+
+
+def wilson_bounds(coefficients, epsilon, width, height):
+    area = width*height
+    count = rectangle_cover(width,height)
+    # Integrate just the perimeter links with every exterior link fixed.
+    # The unique minimal cover tiles the rectangle. Each q=6 character in
+    # our face is a weak and colour singlet, so all interior phases cancel.
+    tail = count**(area+1)*epsilon/(1-count*epsilon)
+    boxes = [(a**area-tail, (a**area+tail)/(1-count*epsilon)) for a in coefficients]
+    assert min(lo for lo,_ in boxes)>0
+    for first, second in combinations(boxes,2):
+        assert first[1]<second[0] or second[1]<first[0]
+    return boxes
+
+
 def verify_order(order):
     eta = F(1,8)
     charges = [6*j for j in range(1,order+3)]
@@ -29,7 +66,7 @@ def verify_order(order):
     change = [F(1,prod(q*q-p*p for p in charges if p!=q)) for q in charges]
     step = min(a/abs(v) for a,v in zip(base,change))/2
     assert all(sum(v*q**(2*k) for q,v in zip(charges,change))==0 for k in range(order+1))
-    outputs = []
+    outputs, electron = [], []
     for t in (-step,F(0),step):
         coeff = defaultdict(Fraction)
         for q,a,v in zip(charges,base,change):
@@ -50,6 +87,7 @@ def verify_order(order):
         squared = {rep:a*a/dimension(rep)**2 for rep,a in coeff.items()}
         moments = [sum(a*index(rep)[j] for rep,a in squared.items()) for j in range(3)]
         outputs.append(moments)
+        electron.append(coeff[6,"one","one"])
     minus,mid,plus = outputs
     assert minus[1:] == mid[1:] == plus[1:]
     difference = minus[0]+plus[0]-2*mid[0]
@@ -67,6 +105,11 @@ def verify_order(order):
         assert any(a[0]>b[1] for a in intervals for b in intervals)
         print("四维单边积分粗化后的刚度比包络",
               [(round(float(lo),7),round(float(hi),7)) for lo,hi in intervals])
+        for width,height in ((1,1),(1,2),(2,2)):
+            boxes = wilson_bounds(electron,F(1,10**30),width,height)
+            if order==16:
+                print("四维电荷六 Wilson 矩形及除去展开展次后的三个期望", (width,height),
+                      [float((a+b)/2) for a,b in boxes])
     return [row[0]/row[1] for row in outputs]
 
 
