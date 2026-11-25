@@ -26,7 +26,7 @@ def bisect(function,lo,hi):
     return lo.union(hi)
 
 
-def pole_polynomials(vertices,lengths,tree_count,*, edge_filter=None):
+def pole_polynomials(vertices,lengths,tree_count,*, edge_filter=None,gap_denominator=64):
     n=len(vertices)
     lap=fmpz_mat(n,n)
     for i,p in enumerate(vertices):
@@ -40,7 +40,7 @@ def pole_polynomials(vertices,lengths,tree_count,*, edge_filter=None):
     minor=fmpz_mat([[lap[i,j] for j in remain] for i in remain])
     assert minor.det()==tree_count
     for r in range(1,n+1):
-        positive=fmpq_mat([[lap[i,j]+fmpq(1,n)-fmpq(int(i==j),64)
+        positive=fmpq_mat([[lap[i,j]+fmpq(1,n)-fmpq(int(i==j),gap_denominator)
                             for j in range(r)] for i in range(r)])
         assert positive.det()>0
     top,bottom=minor.charpoly(),lap.charpoly()

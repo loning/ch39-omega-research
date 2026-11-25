@@ -39,9 +39,13 @@ def polarization(alpha,beta,family):
     return yy,yv,vv
 
 
-def run_window(duration,gY,couplings):
+def run_window(duration,gY,couplings,*,triplet=False):
     alpha,beta,family = couplings
     yy,yv,vv = polarization(*couplings)
+    if triplet:
+        yy += q("4/9")
+        yv += q("8/3")*alpha
+        vv += 16*alpha**2
     def running(t):
         p = t/(8*arb.pi()**2)
         a = 1-p*yy*gY**2
@@ -59,7 +63,12 @@ def run_window(duration,gY,couplings):
     steps = 1024
     for i in range(steps):
         t = (duration*i/steps).union(duration*(i+1)/steps)
-        increments = retuned["current"]["gauge_rates"](*running(t))
+        charges_at_t = running(t)
+        increments = retuned["current"]["gauge_rates"](*charges_at_t)
+        if triplet:
+            extra = 8*(4*charges_at_t[0])**2/comp["loop"]**2
+            increments[0] += q("4/5")*extra
+            increments[2] += extra/2
         for k,(r,v) in enumerate(zip(study["adjoint"]["ratios"],increments,strict=True)):
             total[k] += v*duration/(r*steps)
             rates[k] = rates[k].union(v/r)
