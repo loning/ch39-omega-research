@@ -68,7 +68,7 @@ def thresholds(graph, basis, n):
     inverse = basis.inv()
     entries = [(0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2)]
     read = [(arb_mat(basis)*arb_mat([[g[i, j]] for i, j in entries])).entries() for g in graph]
-    assert all(y > 0 for point in read for y in point)
+    assert all(abs(y) > 0 for point in read for y in point)
 
     def nominal(point, vector):
         col = arb_mat([[v] for v in vector])
@@ -78,7 +78,7 @@ def thresholds(graph, basis, n):
         return [arb(a) for a in (fmpq_mat([lift(vector)])*inverse).entries()]
 
     def cost(point, row):
-        return sum(abs(a)*y for a, y in zip(row, read[point], strict=True))
+        return sum(abs(a*y) for a, y in zip(row, read[point], strict=True))
 
     def same(vector, eps):
         numerator, denominator = nominal(0, vector), nominal(0, family)
