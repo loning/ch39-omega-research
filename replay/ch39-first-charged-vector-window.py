@@ -58,7 +58,7 @@ def window_data(model,gap):
     return t0,h3,end,h8,first,second
 
 
-def bounds(index,upper,windows,time):
+def bounds(index,upper,windows,time,*,integrals=None):
     onset,h3,end,h8,first,second = windows
     state = flavour["before"](index,upper)
     pick = 2 if upper else 3
@@ -81,9 +81,22 @@ def bounds(index,upper,windows,time):
         flow = {**adj["flow"](*scalar),"NEUTRAL_YUKAWA":rate}
         n = 1+int(12*float((b-a).upper()))
         for _ in range(n):
-            state,tube = comp["advance"](state,(b-a)/n,upper,flow=flow,need_tube=True)
+            state,tube,*values = comp["advance"](state,(b-a)/n,upper,flow=flow,need_tube=True,
+                                                  integrate_state=integrals is not None)
+            if integrals is not None:
+                integrals.append(((b-a)/n,flow,values[0]))
             assert all(abs(v)<2 for v in tube)
     return [1/(r*v)-f-s for r,v,f,s in zip(adj["ratios"],state,first[0],second[0])]
+
+
+def verify_speeds(windows):
+    gauge = arb(0).union(arb(2))
+    max_rate = max(*windows[-1][1],*windows[-2][1])
+    for flow in (adj["flow"](False,False),adj["flow"](True,False),adj["flow"](True,True)):
+        speed = [-2*(beta+sum(b*gauge-d*3*gauge for b,d in zip(bs,ds))/comp["loop"])
+                 /(r*comp["loop"]) for beta,bs,ds,r in
+                 zip(flow["BETA"],flow["B"],flow["D"],adj["ratios"],strict=True)]
+        assert speed[1]>max_rate and speed[1]-speed[0]>max_rate and speed[2]-speed[1]>max_rate
 
 
 def verify():
@@ -92,13 +105,7 @@ def verify():
     windows = window_data((L,z,rho,eta,c,masses),graph_gap())
     print("second-window gauge shifts",*(v.str(10) for v in windows[-1][0]))
     cal = study["nominal"][2]
-    gauge = arb(0).union(arb(2))
-    max_rate = max(*windows[-1][1],*windows[-2][1])
-    for flow in (adj["flow"](False,False),adj["flow"](True,False),adj["flow"](True,True)):
-        speed = [-2*(beta+sum(b*gauge-d*3*gauge for b,d in zip(bs,ds))/comp["loop"])
-                 /(r*comp["loop"]) for beta,bs,ds,r in
-                 zip(flow["BETA"],flow["B"],flow["D"],adj["ratios"],strict=True)]
-        assert speed[1]-speed[0]>max_rate and speed[2]-speed[1]>max_rate
+    verify_speeds(windows)
     for index in range(3):
         at = cal-q(".00008")
         lo,hi = [bounds(index,upper,windows,at) for upper in (False,True)]

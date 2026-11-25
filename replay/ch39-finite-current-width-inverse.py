@@ -63,7 +63,7 @@ def equations(L, z, observed):
     return arb_mat([[r[0]] for r in rows]), arb_mat([r[1:] for r in rows])
 
 
-def locate(readings):
+def locate(readings,*,refine=False):
     v = [(r-1)/x for r,x in zip(readings[:4],nodes,strict=True)]
     observed = [(w-v[3])/(v[0]-v[3]) for w in v[1:3]]
     domain = calibration_box(readings)
@@ -86,6 +86,9 @@ def locate(readings):
                 continue
             nl, nz = L.intersection(image[0,0]), z.intersection(image[1,0])
             if nl.rad() < q("2e-6") and nz.rad() < q("2e-6"):
+                if refine and (nl.rad()<L.rad()/2 or nz.rad()<z.rad()/2):
+                    pending.append((nl,nz))
+                    continue
                 solutions.append((nl,nz))
                 continue
             if max(nl.rad()/L.rad(),nz.rad()/z.rad()) < q(".8"):
@@ -109,23 +112,39 @@ def locate(readings):
 def inferred_parameters():
     g, u, w, _, _, active = study["ports"][:6]
     exact = [1+(x/g**2+4/(1/(2*w**2)+active(-x)))/(18*u**2) for x in (*nodes,extra_node)]
-    error = arb(0,q("1e-9").upper())
-    L,z,rho,eta = locate([v*(1+error) for v in exact])
-    assert L.contains(1)
     retuned = study["retuned"]
     _, _, (alpha,beta,family), _ = retuned["current"]["light_current"](retuned["logs"])
     width = widths["reference_width"]((alpha,beta,family))
-    width *= 1+arb(0,q("1e-5").upper())
-    c = 1/L
-    f0 = widths["normalized_lepton_width"](rho,eta,c,z)/width
-    rho,eta,c = rho*f0,eta*f0,c*f0
-    target = 15*L*(rho-widths["inverse"]["port_moments"]()[-1])
+    result = invert_observations(exact,width)
+    target,L = result[:2]
     time = study["nominal"][2]
+    assert L.contains(1)
     assert study["comp"]["model"]["target"](11430,time)>q("3.29412713")>target
     assert target>q("3.29402558")>study["comp"]["model"]["target"](11432,time)
     assert abs(L.log())/2 < q("3.233e-8")
-    masses = four["physical_masses"](c,rho,z)
-    return exact,target,L,z,rho,eta,c,masses
+    return exact,*result
+
+
+def invert_observations(readings,width,relative_shape="1e-9",relative_width="1e-5",*,index=None):
+    error = arb(0,q(relative_shape).upper())
+    L,z,rho,eta = locate([v*(1+error) for v in readings],refine=index is not None)
+    width *= 1+arb(0,q(relative_width).upper())
+    c = 1/L
+    f0 = widths["normalized_lepton_width"](rho,eta,c,z)/width
+    offset = widths["inverse"]["port_moments"]()[-1]
+    target = 15*L*(rho*f0-offset)
+    if index is None:
+        rho,eta,c = rho*f0,eta*f0,c*f0
+        masses = four["physical_masses"](c,rho,z)
+    else:
+        at = study["comp"]["model"]["target"]
+        time = study["nominal"][2]
+        assert at(index-1,time)>target>at(index+1,time)
+        masses = four["physical_masses"](c,rho,z)
+        physical_rho = at(index,time)/(15*L)+offset
+        f0 = f0.intersection(physical_rho/rho)
+        rho,eta,c = physical_rho,eta*f0,c*f0
+    return target,L,z,rho,eta,c,masses
 
 
 def verify():
