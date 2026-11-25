@@ -85,15 +85,19 @@ def verify():
 
     positive_lower_bound(phase + 927*prep, arb(1)/1000)
     print("强度 927 的每单纯形十维二阶型严格大于千分之一倍单位阵")
-    zero_mode = arb_mat(15, 15)
+    zero_phase = arb_mat(15, 15)
+    zero_prep = arb_mat(15, 15)
     for order in permutations(range(4)):
         vertices = [sum(1 << i for i in order[:j]) for j in range(5)]
         embed = arb_mat(10, 15)
         for row, (i, j) in enumerate(EDGES):
             embed[row, vertices[j]-vertices[i]-1] = 1
-        zero_mode += embed.transpose()*(phase + 699*prep)*embed
-    positive_lower_bound(zero_mode, arb(85))
+        zero_phase += embed.transpose()*phase*embed
+        zero_prep += embed.transpose()*prep*embed
+    positive_lower_bound(zero_phase + 699*zero_prep, arb(85))
+    positive_lower_bound(zero_phase + zero_prep/2, arb(3)/50)
     print("强度 699 的零动量十五维二阶型严格大于 85 倍单位阵")
+    print("强度 1/2 的零动量十五维二阶型严格大于 3/50 倍单位阵")
 
 
 if __name__ == "__main__":
