@@ -6,6 +6,20 @@ from runpy import run_path
 from flint import acb,acb_mat,arb,ctx
 
 
+def gram(rot,case):
+    w = acb_mat(19,19)
+    entries = iter(case["gram"])
+    for i in range(19):
+        for j in range(i,19):
+            orbit = {(i,j),tuple(sorted((rot[i],rot[j]))),tuple(sorted((rot[rot[i]],rot[rot[j]])))}
+            if (i,j) == min(orbit):
+                value = arb(next(entries))/10**6
+                for a,b in orbit:
+                    w[a,b] = w[b,a] = value
+    assert next(entries,None) is None
+    return w
+
+
 def verify():
     root = Path(__file__).parent
     model = run_path(str(root/"ch39-three-ray-chiral-boundary.py"))
@@ -20,16 +34,7 @@ def verify():
     identity = acb_mat([[int(i==j) for j in range(19)] for i in range(19)])
     data = json.loads((root/"ch39-phase-vacuum-witnesses.json").read_text())
     for name,case in data.items():
-        w = acb_mat(19,19)
-        entries = iter(case["gram"])
-        for i in range(19):
-            for j in range(i,19):
-                orbit = {(i,j),tuple(sorted((rot[i],rot[j]))),tuple(sorted((rot[rot[i]],rot[rot[j]])))}
-                if (i,j) == min(orbit):
-                    value = arb(next(entries))/10**6
-                    for a,b in orbit:
-                        w[a,b] = w[b,a] = value
-        assert next(entries,None) is None
+        w = gram(rot,case)
         positive(w)
         v = [arb(z)/10**6 for z in case["first"]]
         diff = acb_mat([[(w[i,i]+w[j,j]-2*w[i,j]+acb(0,v[i]-v[j]))*lap[i,j]
