@@ -7,7 +7,7 @@ from flint import arb, ctx
 absolute = run_path(str(Path(__file__).with_name("ch39-fermion-absolute-matching.py")))
 
 
-def verify(*, label=11431, center="26.81676714125598", word=None, discarded=(18,6,3)):
+def verify(*, label=11431, center="26.81676714125598", word=None, discarded=(18,6,3), evolved_state=None):
     ctx.prec = 160
     gauge = absolute["gauge"]
     absolute["ground"]["flow_bounds"]()
@@ -17,7 +17,7 @@ def verify(*, label=11431, center="26.81676714125598", word=None, discarded=(18,
     mass_ratio = 42*(arb("26.81676714125598")-time).exp()
     source = gauge["word"] if word is None else word
     target = model["target"](label,time)
-    state = gauge["gauge_state"](source,time,discarded)
+    state = evolved_state if evolved_state is not None else gauge["gauge_state"](source,time,discarded)
     mixing = [a+b for a,b in gauge["events"]["mixing"]["displacement"](27)]
     residual = [1/(v*y)-target+arb(0,m.upper()) for y,v,m in zip(state,ratios,mixing)]
     tol = arb(2)**-21
