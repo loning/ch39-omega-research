@@ -90,6 +90,7 @@ def verify():
     print("Six-channel partial width / (diagonal coupling squared times parent mass)",width_ratio.str(12))
     print("Charged-pair-plus-neutral threshold and one-spin spectral lower coefficient",
           threshold.str(12),spectral_lower.str(12))
+    return daughter, coupling, density, base+unbroken
 
 
 if __name__ == "__main__":
