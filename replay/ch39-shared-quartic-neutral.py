@@ -44,8 +44,15 @@ def pole_resolvent(vertices,lengths,tree_count,*, edge_filter=None):
                             for j in range(r)] for i in range(r)])
         assert positive.det()>0
     top,bottom=minor.charpoly(),lap.charpoly()
+    common=top.gcd(bottom)
+    top,bottom=top//common,bottom//common
     def green(energy,unit,derivative=False):
         t=energy/unit
+        if derivative == 2:
+            p,r=top(t),bottom(t)
+            dp,dr=top.derivative()(t),bottom.derivative()(t)
+            return (p*r*bottom.derivative().derivative()(t)-top.derivative().derivative()(t)*r*r
+                    +2*dp*r*dr-2*p*dr*dr)/(unit*r)**3
         if derivative:
             return (top(t)*bottom.derivative()(t)-top.derivative()(t)*bottom(t))/(unit*bottom(t))**2
         return -top(t)/(unit*bottom(t))

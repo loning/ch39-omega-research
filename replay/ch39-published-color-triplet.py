@@ -26,7 +26,7 @@ def scalar_flow():
             "B":[[x+d for x,d in zip(row,extra,strict=True)] for row,extra in zip(baseline["B"],change,strict=True)]}
 
 
-def verify_ground(values, intervals, trial_index, scale, allowance, spread_rate, *, logarithm=None, upper_values=None):
+def verify_ground(values, intervals, trial_index, scale, allowance, spread_rate, *, logarithm=None, upper_values=None, stationary_readout=False):
     lower = [v*v for v in values]
     upper = [v*v for v in (values if upper_values is None else upper_values)]
     exact_target = comp["model"]["target"]
@@ -52,8 +52,9 @@ def verify_ground(values, intervals, trial_index, scale, allowance, spread_rate,
                 assert max(abs(v) for v in speeds) < q(".091")
                 assert speeds[2]-speeds[0] > spread_rate
         if index == trial_index:
-            residuals = [abs((1/(r*a)).union(1/(r*b))-target-offset)
+            signed = [(1/(r*a)).union(1/(r*b))-target-offset
                          for r,a,b,offset in zip(ratios,lower[:3],upper[:3],offsets,strict=True)]
+            residuals = [abs(v) for v in signed]
             assert max(residuals)+q("1.3e-16") < allowance
             print("matching-scale residual bounds", *(v.upper().str(10) for v in residuals))
 
@@ -71,7 +72,25 @@ def verify_ground(values, intervals, trial_index, scale, allowance, spread_rate,
         trial = 3*d*allowance**2
         assert min((3*m*edge**2).lower(), (d*spread**2/2).lower())-trial-q(".000011193") > q(".000001")
         assert q("8e-6") > trial
-        assert (3*d/m).sqrt()*allowance < arb(2)**-21
+        if not stationary_readout:
+            assert (3*d/m).sqrt()*allowance < arb(2)**-21
+            continue
+        # At a minimizing scale the common residual is controlled by the
+        # derivative of the contrast energy. First localize by the pair spread.
+        near = ((arb(6).sqrt()+2)*allowance/spread_rate).upper()
+        assert scale-near>intervals[trial_index][0] and scale+near<intervals[-1][1]
+        if logarithm is not None:
+            assert end<scale-near
+        slope = 2*(target-q("1.3e-16"))*(-2*near).exp()-q(".091")
+        assert slope>6
+        trial_mean = abs(sum(signed)/3)+q("1.3e-16")
+        centred = [abs((2*signed[i]-signed[(i+1)%3]-signed[(i+2)%3])/3) for i in range(3)]
+        location = (trial_mean+(d/m).sqrt()*allowance)/slope
+        for _ in range(2):
+            dispersion = [v+q(".182")*location for v in centred]
+            mean_bound = d/m*q(".091")*sum(dispersion)/(3*slope)
+            location = (trial_mean+mean_bound)/slope
+        assert mean_bound+max(centred)+q(".182")*location < arb(2)**-21
 
 
 def verify():
