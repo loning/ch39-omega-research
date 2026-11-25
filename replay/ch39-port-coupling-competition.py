@@ -39,10 +39,10 @@ def solve(D,J,z):
     return shifted.solve(J)
 
 
-def negative_energy(h,vector,gain):
+def negative_energy(h,vector,gain, *, gauge_weight=1):
     D,J = internal(h)
     b = J*vector
-    inv = 1/(h*h+study["offset"])
+    inv = gauge_weight/(h*h+study["offset"])
     def equation(z):
         return z-gain**2*(inv+(adjoint(b)*solve(D,b,z))[0,0].real)
     lo,hi = arb(0),arb(1)
@@ -58,8 +58,8 @@ def negative_energy(h,vector,gain):
     return lo.union(hi)
 
 
-def full_spectrum(h,vector,gain, *, curvature=None, allowance=None):
-    shift = negative_energy(h,vector,gain)
+def full_spectrum(h,vector,gain, *, curvature=None, allowance=None, gauge_weight=1):
+    shift = negative_energy(h,vector,gain,gauge_weight=gauge_weight)
     nodes,rows = torus["response_grid"](shift)
     readout = lambda t: (adjoint(vector)*t*vector)[0,0].real
     det0,T = rows[0][0]
@@ -74,7 +74,7 @@ def full_spectrum(h,vector,gain, *, curvature=None, allowance=None):
     def response(h):
         D,J = internal(h)
         return -adjoint(J)*solve(D,J,shift)
-    gap,_ = resolution["spectrum_gap"](0,0,1/study["center"],curvature,allowance,
+    gap,_ = resolution["spectrum_gap"](0,0,gauge_weight/study["center"],curvature,allowance,
                                        readout=readout,response_at=response)
     # Scalar Schur derivative magnitude <= 1+g^2 ||Jv||^2 / gap(D)^2
     # on the path between the negative roots.
