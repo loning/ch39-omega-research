@@ -10,12 +10,14 @@ gauge = ground["gauge"]
 angle = run_path(str(root/"ch39-first-arithmetic-plaquette-winding.py"))["angle"]
 
 
-def shifts(ratio, time_offset, center_time, delta):
+def shifts(ratio, time_offset, center_time, delta, *, size=5, hop=None):
     # 质量以 M 为标尺，ratio=M/Q_*，低能减法点为 1 TeV。
+    if hop is None:
+        hop = arb(1)/2
     def log_sum(phase, momentum_ratio):
         total = arb(0)
-        for j in range(5):
-            mass_squared = arb(5)/4+((phase+2*j*arb.pi())/5).cos()
+        for j in range(size):
+            mass_squared = 1+hop**2+2*hop*((phase+2*j*arb.pi())/size).cos()
             z = momentum_ratio**2/mass_squared
             linear = z/5
             total += (linear-3*z**2/140).union(linear)
