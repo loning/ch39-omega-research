@@ -41,6 +41,41 @@ def matter():
     return one,two
 
 
+def dot(a,b):
+    return sum(x*y for x,y in zip(a,b))
+
+def integrate_segments(initial, segments, D, C, record=None):
+    pi = arb.pi()
+    correction = [arb(0) for _ in range(3)]
+    logs = [arb(x).log() for x in (".98",".016",".010")]
+    baseline = initial[:]
+    start_time = arb(0)
+    for time,coeff,matrix,steps in segments:
+        dt = time/steps
+        for k in range(steps):
+            interval = (arb(k)+arb(0).union(1))*dt
+            # 常数宽度包络只用于证明单步内解存在并给导数定界。
+            xpad, ypad = arb(".4")*dt.upper(), arb(".12")*dt.upper()
+            inverse = [a-s*interval/(2*pi)+v+arb(0,xpad) for a,s,v in zip(baseline,coeff,correction)]
+            assert all(v>8 for v in inverse)
+            gauge = [1/v for v in inverse]
+            y = [(2*(v+arb(0,ypad))).exp() for v in logs]
+            if record is not None:
+                record(start_time+k*dt,dt,gauge,y)
+            trace = 3*(y[0]+y[1])+y[2]
+            dx = [-dot(row,gauge)/(8*pi**2)+dot(yr,y)/(32*pi**3) for row,yr in zip(matrix,D)]
+            dy = [(arb(3)/2*diff+trace-4*pi*dot(row,gauge))/(16*pi**2)
+                  for diff,row in zip((y[0]-y[1],y[1]-y[0],y[2]),C)]
+            for values,speeds,pad in [(correction,dx,xpad),(logs,dy,ypad)]:
+                for i,speed in enumerate(speeds):
+                    assert abs(dt*speed) < pad
+                    values[i] += dt*speed
+        baseline = [a-s*time/(2*pi) for a,s in zip(baseline,coeff)]
+        start_time += time
+    return correction,[v+h for v,h in zip(baseline,correction)]
+
+
+
 def verify(observer=None):
     sm = run_path(str(ROOT/"ch39-two-loop-shell-separation.py"))
     ctx.prec = 192
@@ -61,37 +96,9 @@ def verify(observer=None):
     assert arb("1.99047e12") < one_m < arb("1.99049e12")
     assert arb("2.40849e15") < one_mu < arb("2.40851e15")
     print("相同尖阈值处方的一圈轻档与交点",one_m.str(13),one_mu.str(13))
-    def dot(a,b):
-        return sum(x*y for x,y in zip(a,b))
-
     def integrate(times,steps,record=None):
-        correction = [arb(0) for _ in range(3)]
-        logs = [arb(x).log() for x in (".98",".016",".010")]
-        baseline = initial[:]
-        start_time = arb(0)
-        for time,coeff,matrix in zip(times,(b,b_high),(B,high)):
-            dt = time/steps
-            for k in range(steps):
-                interval = (arb(k)+arb(0).union(1))*dt
-                # 常数宽度包络只用于证明单步内解存在并给导数定界。
-                xpad, ypad = arb(".4")*dt.upper(), arb(".12")*dt.upper()
-                inverse = [a-s*interval/(2*pi)+v+arb(0,xpad) for a,s,v in zip(baseline,coeff,correction)]
-                assert all(v>8 for v in inverse)
-                gauge = [1/v for v in inverse]
-                y = [(2*(v+arb(0,ypad))).exp() for v in logs]
-                if record is not None:
-                    record(start_time+k*dt,dt,gauge,y)
-                trace = 3*(y[0]+y[1])+y[2]
-                dx = [-dot(row,gauge)/(8*pi**2)+dot(yr,y)/(32*pi**3) for row,yr in zip(matrix,D)]
-                dy = [(arb(3)/2*diff+trace-4*pi*dot(row,gauge))/(16*pi**2)
-                      for diff,row in zip((y[0]-y[1],y[1]-y[0],y[2]),C)]
-                for values,speeds,pad in [(correction,dx,xpad),(logs,dy,ypad)]:
-                    for i,speed in enumerate(speeds):
-                        assert abs(dt*speed) < pad
-                        values[i] += dt*speed
-            baseline = [a-s*time/(2*pi) for a,s in zip(baseline,coeff)]
-            start_time += time
-        return correction,[v+h for v,h in zip(baseline,correction)]
+        segments = [(time,coeff,matrix,steps) for time,coeff,matrix in zip(times,(b,b_high),(B,high))]
+        return integrate_segments(initial,segments,D,C,record)
 
     # 在时间矩形上反演精确的一圈仿射项，两圈积分进入连续映射右端。
     times = [arb("24.25").union(arb("24.62")),arb("5.80").union(arb("6.14"))]
