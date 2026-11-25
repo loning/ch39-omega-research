@@ -63,19 +63,23 @@ def verify():
     print("Absolute magnetic vacuum bound and safe backreaction lower endpoint",
           bound.upper().str(9),safe.lower().str(10))
 
-    h, other = (acb.zeta_zero(n).imag for n in (11431,2019542))
-    gap = flavor_energy(other)-flavor_energy(h)
-    assert gap > 0
-    charged = charged_vacuum(h,cosine)-charged_vacuum(other,cosine)
-    # The neutral tower and the same-shell zero-connection reference only
-    # change by the three-spoke stiffness, whose operator norm is <=4*|dw|.
-    # On [0,36], |(m^2 log m)'| < 300 including the continuous endpoint.
-    error = (33+75)*19*300*4*abs(decrease(h)-decrease(other))/(16*arb.pi()**2)
-    advantage = charged+arb(0,error.upper())
-    threshold = gap/advantage
-    assert advantage > arb(".028") and threshold < arb("7e-11")
-    print("Witness zero 2019542, flavor cost, loop advantage, trial crossover",
-          gap.str(11),advantage.str(9),threshold.str(9))
+    h = acb.zeta_zero(11431).imag
+    center_flavor = flavor_energy(h)
+    center_charged = charged_vacuum(h,cosine)
+    for index, floor, upper in ((2019542,".028","7e-11"),(93917305,".001","7.6e-13")):
+        other = acb.zeta_zero(index).imag
+        gap = flavor_energy(other)-center_flavor
+        assert gap > 0
+        charged = center_charged-charged_vacuum(other,cosine)
+        # The neutral tower and the same-shell zero-connection reference only
+        # change by the three-spoke stiffness. The trace derivative on [0,36]
+        # is bounded by 300, including the continuous endpoint at zero.
+        error = (33+75)*19*300*4*abs(decrease(h)-decrease(other))/(16*arb.pi()**2)
+        advantage = charged+arb(0,error.upper())
+        threshold = gap/advantage
+        assert advantage > arb(floor) and threshold < arb(upper)
+        print("Witness zero, flavor cost, loop advantage, trial crossover",
+              index,gap.str(11),advantage.str(9),threshold.str(9))
 
 
 if __name__ == "__main__":
