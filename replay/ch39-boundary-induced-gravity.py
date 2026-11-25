@@ -118,6 +118,53 @@ def finite_cutoff(scale, fields, third, added):
           ratio.str(8),rho.str(8),curvature.str(8))
 
 
+def curvature_sensitivity(scale, fields):
+    r = scale/arb("1.22089e19")
+    xmin = (arb(".391")/r.upper())**2
+    xmax = (arb(".392")/r.lower())**2
+    first,second = [-sum(g*z**k for g,z in fields) for k in (1,2)]
+    base_log = sum(g*z**2*z.log() for g,z in fields if not z.is_zero())
+    bosons = 332
+    def family(t):
+        mean = (first+2*t)/bosons
+        shift = (((second+2*t*t)/bosons-mean*mean)/(bosons-1)).sqrt()
+        dmean = arb(2)/bosons
+        dshift = (4*t/bosons-2*mean*dmean)/(2*(bosons-1)*shift)
+        return ((331,mean-shift,dmean-dshift), (1,mean+331*shift,dmean+331*dshift),(-2,t,arb(1)))
+    def log_value(t):
+        return base_log+sum(g*z*z*z.log() for g,z,_ in family(t))
+    assert log_value(arb(168)) < -1 < 1 < log_value(arb(169))
+    slopes = []
+    for i in range(32):
+        t = arb(168) + (arb(i)/32).union(arb(i+1)/32)
+        moving = family(t)
+        maximum = max(z.upper() for _,z in fields+[(g,z) for g,z,_ in moving])
+        assert maximum/xmin < arb("2e-9")
+        # The same calibration bracket holds uniformly on this branch.
+        heat_loss = 280*(1-(maximum/xmin).upper().expint(2))
+        assert arb(".391")**2*(41+heat_loss)/(2*arb.pi()) < 1
+        assert arb(".392")**2*(41-heat_loss)/(2*arb.pi()) > 1
+        # d[x E2(z/x)]/dx = exp(-z/x), and the t derivative at fixed
+        # x is -z' E1(z/x). Only the three moving masses contribute.
+        assert 41-280*(1-(-maximum/xmin).exp()) > 40
+        assert min(z.lower() for _,z,_ in moving)/xmax > arb("1e-11")
+        assert arb("1e-11").expint(1) < 30
+        da, dc = moving[0][2],moving[1][2]
+        xprime = 30*(325*abs(da)+abs(dc)+1)/(6*40)
+        log_derivative = sum(g*z*(2*z.log()+1)*dz for g,z,dz in moving)
+        abs3 = sum(abs(g)*z**3 for g,z in fields)+sum(abs(g)*z**3 for g,z,_ in moving)
+        assert abs3/(6*xmin) < arb(".001")
+        # For z/x<1, the alternating remainder after the log term begins
+        # with z^3/(6x); differentiate its absolutely convergent tail.
+        error = sum(abs(g*dz)*z*z for g,z,dz in moving)/(2*xmin) + xprime*abs3/(6*xmin**2)
+        slopes.append(r**4/(8*arb.pi())*(log_derivative+arb(0,2*error.upper())))
+    derivative = min(x.lower() for x in slopes).union(max(x.upper() for x in slopes))
+    assert arb("6e-24") < derivative < arb("7.2e-24")
+    spacing = arb("1e-122")/derivative
+    print("按牛顿常数标定截止后，曲率对 Weyl 平方质量比的斜率区间及曲率变化 1e-122 的间距",
+          derivative.lower().str(9),derivative.upper().str(9),spacing.lower().str(9),spacing.upper().str(9))
+
+
 def verify():
     ctx.prec = 224
     scale, mass = matched["verify"]()
@@ -138,6 +185,7 @@ def verify():
         fields.extend((-4*dimension,a*multiplier/radius**2) for a in levels)
     third, added = vacuum_moments(fields)
     finite_cutoff(scale, fields, third, added)
+    curvature_sensitivity(scale, fields)
 
 
 if __name__ == "__main__":
