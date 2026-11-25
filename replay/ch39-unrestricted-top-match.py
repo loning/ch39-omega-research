@@ -26,6 +26,8 @@ def initial(top, upper):
 
 
 def coefficients(state, order, upper, flow):
+    if "NEUTRAL_YUKAWA_BOUNDS" in flow:
+        flow = {**flow,"NEUTRAL_YUKAWA":flow["NEUTRAL_YUKAWA_BOUNDS"][int(upper)]}
     return grid["rational"]["taylor"](state, order, flow, 1/loop, opposite_trace=not upper)
 
 

@@ -37,6 +37,8 @@ def taylor(initial, order, running, inverse_loop, *, opposite_trace=None):
             corr = sum(b*x-d*t for b,d,x,t in zip(running["B"][i],running["D"][i],u,traces))
             gauge_rates.append(2*((running["BETA"][i] if k == 0 else 0)+corr*inverse_loop)*inverse_loop)
             gy = sum(c*x for c,x in zip(running["C"][i],u))
+            if k == 0 and "NEUTRAL_YUKAWA" in running:
+                gy += 3*running["NEUTRAL_YUKAWA"][i]
             for a in range(3):
                 mix = y[3*(1-i)+a] if i < 2 else 0
                 if i < 2 and opposite_trace is not None:
