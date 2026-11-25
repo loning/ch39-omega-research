@@ -11,7 +11,7 @@ degree = 19
 curvature = arb(1)/1000
 
 
-def response_grid():
+def response_grid(shift=None):
     phases = study["geo"]["phases"](acb.zeta_zero(11431).imag)
     nodes = [acb(0,2*arb.pi()*k/size).exp() for k in range(size)]
     inside, portals, columns = (native[k] for k in ("inside","portals","columns"))
@@ -21,6 +21,9 @@ def response_grid():
         row = []
         for b in nodes:
             m,block = study["phases_to_block"](a*phases[724],b*phases[804])
+            if shift is not None:
+                for k in range(block.nrows()):
+                    block[k,k] += shift
             det = block.det().real
             assert det > 0
             solution = block.solve(native["source"])

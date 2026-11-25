@@ -18,7 +18,7 @@ def zero_count(height):
     return int(count)
 
 
-def spectrum_gap(A, B, slope, curvature, allowance, *, individual=(), readout=None):
+def spectrum_gap(A, B, slope, curvature, allowance, *, individual=(), readout=None, response_at=None):
     height = acb.zeta_zero(center_index).imag
     offset = study["offset"]
     numerator = height**2 + offset
@@ -28,9 +28,11 @@ def spectrum_gap(A, B, slope, curvature, allowance, *, individual=(), readout=No
     a, b = geo["a"], geo["b"]
     pi = arb.pi()
     step = 2*pi/a
-    reference = study["native"]["plane_response"](height)
+    if response_at is None:
+        response_at = study["native"]["plane_response"]
+    reference = response_at(height)
     def score(h):
-        diff = study["native"]["plane_response"](h)-reference
+        diff = response_at(h)-reference
         if readout is not None:
             return readout(diff)
         return (A*(diff[0,0]-diff[1,1]).real/2
