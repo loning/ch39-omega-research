@@ -60,8 +60,8 @@ def tight_data(t, center, radii):
     return values, derivatives
 
 
-def phase_system(weights, xs, point_rows):
-    S, tau = sharp["S"], sharp["tau"]/2
+def phase_system(weights, xs, point_rows, S):
+    tau = sharp["tau"]/2
     means = [sum(w*row[j] for w,row in zip(weights,point_rows)) for j in range(5)]
     a,b,u,v,j = means
     cu = (1-S)*(1-2*u)+v-(1-S)*b
@@ -76,7 +76,32 @@ def phase_system(weights, xs, point_rows):
     return residual, matrix, delta
 
 
-def prepare_case(share, support, cost, strength, tangent):
+def contact_weights(rows, S):
+    from flint import arb_poly
+    xs,obs = zip(*rows)
+    a,b,u,v,j = zip(*obs)
+    mat = arb_mat([[1]*4,xs,[a0-S*(1-u0) for a0,u0 in zip(a,u)],u])
+    base = mat.solve(arb_mat([[1],[0],[0],[sharp["lo"]]]))
+    speed = mat.solve(arb_mat([[0],[0],[0],[sharp["hi"]-sharp["lo"]]]))
+    ws=[arb_poly([base[i,0],speed[i,0]]) for i in range(4)]
+    U=arb_poly([sharp["lo"],sharp["hi"]-sharp["lo"]])
+    B,V,J=[sum(w*y for w,y in zip(ws,col)) for col in (b,v,j)]
+    eq=J-(sharp["tau"]/2)*((1-S)*U*(1-U)-(1-U)*V+(S-(1-S)*U)*B)
+    lo, hi = arb(0),arb(1)
+    assert eq(lo)*eq(hi)<0
+    for _ in range(100):
+        mid=(lo+hi)/2
+        val=eq(mid)
+        assert 0 not in val
+        if val*eq(lo)>0:lo=mid
+        else: hi=mid
+    return [w(lo.union(hi)) for w in ws]
+
+
+def prepare_case(share, support, cost, strength, tangent, second_angle=False):
+    S = arb(".041775")**2 if second_angle else sharp["S"]
+    def ordered(row):
+        return [row[1],row[0],*row[2:]] if second_angle else row
     scale = -strength/tangent
     theta = arb(0).union(1)
     assert scale>0
@@ -90,10 +115,10 @@ def prepare_case(share, support, cost, strength, tangent):
     middle = [x+scale*y/2 for x,y in zip(unshifted,costs)]
     center_input = study["native"]["plane_response"](acb.zeta_zero(11431).imag)
     def mixed(row, center):
-        return [share*b+remaining*a for a,b in zip(row,center)]
+        return ordered([share*b+remaining*a for a,b in zip(row,center)])
     center_obs = flavor_data(center_input,centers)[0]
     central = [mixed(flavor_data(t,centers)[0],center_obs) for t in inputs]
-    weights, _ = sharp["attaining_distribution"](list(zip(middle,central)),[],[])
+    weights = contact_weights(list(zip(middle,central)),S)
     mid = [w.mid() for w in weights]
     r = arb(2)**-28
     data = [tight_data(t,centers,[r]*4) for t in inputs]
@@ -101,8 +126,8 @@ def prepare_case(share, support, cost, strength, tangent):
     values = [mixed(row,mid_box) for row,ds in data]
     derivatives = [[mixed(d,e) for d,e in zip(ds,mid_derivatives)] for row,ds in data]
     box = [w+arb(0,arb(".002")) for w in mid]
-    residual, _, _ = phase_system(mid,xs,values)
-    _, initial_jac, _ = phase_system(box,xs,values)
+    residual, _, _ = phase_system(mid,xs,values,S)
+    _, initial_jac, _ = phase_system(box,xs,values,S)
     pre = arb_mat([[initial_jac[i,j].mid() for j in range(4)] for i in range(4)]).inv()
     ident = arb_mat([[int(i==j) for j in range(4)] for i in range(4)])
     contraction = ident-pre*initial_jac
@@ -112,35 +137,35 @@ def prepare_case(share, support, cost, strength, tangent):
     assert max(ratios)<1
     assert all(abs(step0[i,0])+ratios[i]*arb(".002") < arb(".002") for i in range(4))
     for k in range(6):
-        _, jac, delta = phase_system(box,xs,values)
+        _, jac, delta = phase_system(box,xs,values,S)
         step = jac.solve(residual)
         image = [w-step[i,0] for i,w in enumerate(mid)]
         if k==0:
             assert all(a.contains_interior(b) for a,b in zip(box,image))
         box = [a.intersection(b) for a,b in zip(box,image)]
     assert all(w>0 for w in box)
-    _, jac, delta = phase_system(box,xs,values)
+    _, jac, delta = phase_system(box,xs,values,S)
     multipliers = jac.transpose().solve(arb_mat([[y] for y in costs]))
     signs = []
     for j in range(4):
         mean = [sum(w*point[j][k] for w,point in zip(box,derivatives)) for k in range(5)]
-        deriv = -multipliers[2,0]*(mean[0]+sharp["S"]*mean[2])
+        deriv = -multipliers[2,0]*(mean[0]+S*mean[2])
         deriv -= multipliers[3,0]*sum(a*b for a,b in zip(delta,mean))
         print("Derivative",j,deriv.str(15))
         assert 0 not in deriv
         signs.append(1 if deriv>0 else -1)
-    assert signs == ([-1, 1, -1, -1] if share>0 else [-1, -1, -1, -1])
+    expected_signs = [-1, 1, 1, 1] if second_angle else ([-1, 1, -1, -1] if share>0 else [-1]*4)
+    assert signs == expected_signs
     print("Minimum corner signs",[-s for s in signs],"weights",*[a.str(10) for a in box])
-    S = sharp["S"]
-    mean = [sum(w*row[i] for w,row in zip(box,values)) for i in range(5)]
+    mean = [values[0][i]+sum(box[k]*(values[k][i]-values[0][i]) for k in (1,2,3)) for i in range(5)]
     reference = [mean[i] for i in (2,1,3,4)]
     assert sharp["lo"] < mean[2] < sharp["hi"]
-    assert arb(".041775")**2 < mean[1]/(1-mean[2]) < arb(".041885")**2
+    other_low,other_high = (".224955",".225065") if second_angle else (".041775",".041885")
+    assert arb(other_low)**2 < mean[1]/(1-mean[2]) < arb(other_high)**2
     assert mean[4]>0
     endpoint_data = []
     determinant_signs = []
     for u in (sharp["lo"],sharp["hi"]):
-        tests = sharp["phase_tests"](u, reference)
         uc,bc,vc,jc = reference
         cu = (1-S)*(1-u-uc)+vc-(1-S)*bc
         cb = S-(1-S)*u
@@ -156,15 +181,22 @@ def prepare_case(share, support, cost, strength, tangent):
 
         assert 0 not in mat.det() and dual[2,0]>0 and dual[3,0]>0
         determinant_signs.append(mat.det()>0)
-        a0,p0 = diff_features(mid_box,values[0])
+        a0,p0 = diff_features(ordered(mid_box),values[0])
         center_slack = -costs[0]+dual[1,0]*xs[0]-dual[2,0]*a0-dual[3,0]*p0
         if share>0:
             assert center_slack<0
         assert 1-theta*scale*dual[1,0]>0 and 1+(1-theta)*scale*dual[1,0]>0
         def normalized(obs):
-            a,b=tests(obs)
-            return dual[2,0]/dual[3,0]*a+b
-        upper = dual[3,0]*(remaining*sharp["compare_torus"](arb(1),normalized)+share*normalized(mid_box))
+            a,b,k,v,j=obs
+            p=j-jc-sharp["tau"]/2*(cu*(k-uc)-(1-u)*(v-vc)+cb*(b-bc))
+            return dual[2,0]/dual[3,0]*(a-S*(1-k))+p
+        if second_angle:
+            assert cu>0 and cb>0
+            max_phase=1-jc+sharp["tau"]/2*(cu*uc+(1-u)*(1-vc)+cb*bc)
+            outside_bound = dual[2,0]/dual[3,0]*arb(104)/867+max_phase
+        else:
+            outside_bound = sharp["compare_torus"](arb(1),normalized)
+        upper = dual[3,0]*(remaining*outside_bound+share*normalized(ordered(mid_box)))
         candidate_mean = sum(w*y for w,y in zip(box,costs))
         for n in (8499,16001):
             x, _ = sharp["row"](acb.zeta_zero(n))
@@ -181,10 +213,12 @@ def prepare_case(share, support, cost, strength, tangent):
     corner_rows=[mixed(flavor_data(t,corner)[0],corner_center) for t in inputs]
     for t in (arb(0),arb(1)/2,arb(1)):
         coord = [x+t*scale*y for x,y in zip(unshifted,costs)]
-        corner_weights,_=sharp["attaining_distribution"](list(zip(coord,corner_rows)),[],[])
+        corner_weights=contact_weights(list(zip(coord,corner_rows)),S)
         optimum=sum(w*v for w,v in zip(corner_weights,costs))
         if t == 0:
             expected = arb("1.74424814946858e-26") if share>0 else arb("5.868177693464756e-25")
+            if second_angle:
+                expected = arb("4.93918790720680305e-30")
             assert abs(optimum*strength-expected)<arb("1e-39")
         print("Central weight cap", share.str(3), "budget direction",t.str(3),"gauge tolerance",
               (t*scale*optimum).str(23),"port tolerance",((1-t)*strength*optimum).str(23),flush=True)
@@ -213,8 +247,9 @@ def prepare_case(share, support, cost, strength, tangent):
 def verify():
     ctx.prec = 224
     cost, strength, tangent = joint["port_cost"](include_tangent=True)
-    cases = [(arb(0), sharp["support"]), (arb(1)/2, (10762,11159,11432,11831))]
-    checks = [(support,prepare_case(share,support,cost,strength,tangent)) for share,support in cases]
+    cases = [(arb(0), sharp["support"], False), (arb(1)/2, (10762,11159,11432,11831), False),
+             (arb(3)/4, (11406,11416,11430,11432), True)]
+    checks = [(support,prepare_case(share,support,cost,strength,tangent,second)) for share,support,second in cases]
     radius = arb(2)**-28
     coeff_box = [c+arb(0,radius) for c in centers]
     floor=arb(1)
@@ -238,7 +273,7 @@ def verify():
                     gap=slack(x,tight_data(t,centers,[radius]*4)[0],value)
                 assert gap>0, (n,str(gap))
                 floor=min(floor,gap)
-    print("Uniform strict slack for exclusion and majority:",floor.str(14))
+    print("Uniform strict slack for all three occupation thresholds:",floor.str(14))
 
 
 if __name__ == "__main__":
