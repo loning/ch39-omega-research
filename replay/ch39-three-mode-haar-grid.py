@@ -21,7 +21,7 @@ def tables(period):
     return face, slope, weyl
 
 
-def grid_moments(ny, nw, nc, by_charge, weyl):
+def grid_moments(ny, nw, nc, by_charge, weyl, absolute_gradients=False):
     assert ny % 6 == nw % 2 == nc % 3 == 0
     period = lcm(ny, nw, nc)
     # All six permutations have the same squared Cartan gradient. Coincident
@@ -47,17 +47,18 @@ def grid_moments(ny, nw, nc, by_charge, weyl):
                 face, slope = by_charge[abs(q)]
                 angle = (q*y + w*weak + sign*c) % period
                 density *= face[angle]
-                grad_y += q*slope[angle]
-                grad_w += w*slope[angle]
-                grad += sign*slope[angle]
+                grad_y += (abs(q) if absolute_gradients else q)*slope[angle]
+                grad_w += (abs(w) if absolute_gradients else w)*slope[angle]
+                grad += (1 if absolute_gradients else sign)*slope[angle]
             grad_c.append(grad)
         for q, w in ((-3,1),(-3,-1),(6,0)):
             face, slope = by_charge[abs(q)]
             angle = (q*y + w*weak) % period
             density *= face[angle]
-            grad_y += q*slope[angle]
-            grad_w += w*slope[angle]
-        color_square = sum((grad_c[a]-grad_c[b])**2 for a,b in ((0,1),(0,2),(1,2)))
+            grad_y += (abs(q) if absolute_gradients else q)*slope[angle]
+            grad_w += (abs(w) if absolute_gradients else w)*slope[angle]
+        color_sign = 1 if absolute_gradients else -1
+        color_square = sum((grad_c[a]+color_sign*grad_c[b])**2 for a,b in ((0,1),(0,2),(1,2)))
         sums += [np.sum(density), np.sum(density*grad_y**2),
                  np.sum(density*grad_w**2), np.sum(density*color_square)]
     # Recover weighted RMS values. Outward allowances cover binary64 table
