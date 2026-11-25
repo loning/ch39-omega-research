@@ -30,18 +30,6 @@ def verify():
     assert cmax+five < -arb(".1972")
     print("Universal single five projected gap upper bound", (cmax+five).upper().str(11))
 
-    # T_Y,T_W,T_C in wedge^2(5), grouped by signed hypercharge times six.
-    weight = {}
-    for i,j in combinations(range(5),2):
-        labels = [int(k in (i,j)) for k in range(5)]
-        q = -2*sum(labels[:3])+3*sum(labels[3:])
-        row = weight.setdefault(q,[arb(0) for _ in range(3)])
-        row[0] += arb(q*q)/60
-        row[1] += arb((labels[3]-labels[4])**2)/4
-        row[2] += arb((labels[0]-labels[1])**2)/4
-    assert set(weight) == {-4,1,6}
-    assert all(sum(row[i] for row in weight.values()).contains(arb("1.5")) for i in range(3))
-
     h = acb.zeta_zero(11431).imag
     star, ordinary, _ = soft["vector_pencil"](h)
     loss = arb(23)/25*arb(2)**-20/(h*h+soft["point"]["study"]["offset"])
@@ -64,6 +52,36 @@ def verify():
     t = one_minus_cos(mass_box)
     assert 0 < t < arb("1e-15")
     motion = arb(0,(arb(6)*t).sqrt().upper())
+    mu_box = arb("6.3573e15").union(arb("6.3575e15"))
+    common,light_mass = matching_box(mass_box,motion,mu_box)
+    angle = 2*(t/2).sqrt().asin()
+    assert arb("2.2022e-9") < angle < arb("2.2024e-9")
+    assert arb("53.9033") < common < arb("53.9035")
+    assert arb("5.687e5") < light_mass < arb("5.689e5")
+    print("Ten matching angle, scale, inverse, lightest physical mass GeV",
+          angle.str(10),mu_box.str(10),common.str(10),light_mass.str(10))
+
+
+
+def matching_box(mass_box,motion,mu_box):
+    masses = crossing["shell_spectra"]((0,5))
+    geo = soft["geo"]
+    r = geo["theta"](804)/geo["theta"](12)
+    mz,em,weak = arb("91.1876"),arb("127.930"),arb(".23129")
+    initial = (3*(1-weak)*em/5, weak*em, 1/arb(".1180"))
+    pi, beta = arb.pi(), smooth["beta"]
+    # T_Y,T_W,T_C in wedge^2(5), grouped by signed hypercharge times six.
+    weight = {}
+    for i,j in combinations(range(5),2):
+        labels = [int(k in (i,j)) for k in range(5)]
+        q = -2*sum(labels[:3])+3*sum(labels[3:])
+        row = weight.setdefault(q,[arb(0) for _ in range(3)])
+        row[0] += arb(q*q)/60
+        row[1] += arb((labels[3]-labels[4])**2)/4
+        row[2] += arb((labels[0]-labels[1])**2)/4
+    assert set(weight) == {-4,1,6}
+    assert all(sum(row[i] for row in weight.values()).contains(arb("1.5")) for i in range(3))
+
     towers = {q:[v+motion for v in masses[abs(q-1)]] for q in weight}
     assert all(v > 1 for row in towers.values() for v in row)
     vect = [sum(smooth["sheet"](v,r*r,True) for v in masses[q]) for q in (0,5)]
@@ -75,7 +93,6 @@ def verify():
         return [a-2*sum(row[i]*d[q] for q,row in weight.items())/(3*pi) for i,a in enumerate(bg)]
     def separate(a):
         return (beta[1]-beta[2])*(a[0]-a[2])-(beta[0]-beta[2])*(a[1]-a[2])
-    mu_box = arb("6.3573e15").union(arb("6.3575e15"))
     logs = (mu_box/mz).log()
     ref2 = r*r*(-2*logs).exp()
     error = arb(0,(ref2/8*(19*(35/(4*pi)+1/pi)+1/(pi*mass_box.lower()))).upper())
@@ -87,14 +104,6 @@ def verify():
         vals = read(mass_box,L)
         assert sign*(vals[0]-vals[2]) > 0
     common = read(mass_box,logs)[2]
-    angle = 2*(t/2).sqrt().asin()
-    light_mass = mass_box.sqrt()*mu_box/r
-    assert arb("2.2022e-9") < angle < arb("2.2024e-9")
-    assert arb("53.9033") < common < arb("53.9035")
-    assert arb("5.687e5") < light_mass < arb("5.689e5")
-    print("Ten matching angle, scale, inverse, lightest physical mass GeV",
-          angle.str(10),mu_box.str(10),common.str(10),light_mass.str(10))
-
     def vector_lower(row):
         # For f>=1 the vector slope is >= its f=1 lower Riemann integral.
         total = arb(0)
@@ -109,6 +118,8 @@ def verify():
               for b,n,k in zip(beta,(0,2,3),(5,3,2))]
     assert all(z>arb("17.68") for z in slopes)
     print("Post-matching uniform positive log-momentum slopes",*[z.lower().str(8) for z in slopes])
+
+    return common,mass_box.sqrt()*mu_box/r
 
 
 if __name__ == "__main__":
