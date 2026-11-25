@@ -1,32 +1,38 @@
 """零裸质量的 75 维物质在三条辐边上携带共同粒子数相位。"""
+from collections import Counter
 from fractions import Fraction
 from functools import cache
+from itertools import combinations
 from pathlib import Path
 from runpy import run_path
 
-from flint import acb, acb_mat, arb, arb_poly, ctx, fmpq, fmpq_poly, fmpz_mat
+from flint import acb, acb_mat, acb_poly, arb, arb_poly, ctx, fmpq, fmpq_poly, fmpz_mat
 
 crossing = run_path(str(Path(__file__).with_name("ch39-unit-seventy-five-crossing.py")))
 smooth, soft = crossing["smooth"], crossing["soft"]
 
 
 
+def spoke_polynomials(matrix, pole, orbit, weight, relative):
+    def polynomial(phase):
+        m = acb_mat(matrix)
+        for j, factor in zip(orbit, (relative, relative.conjugate(), 1)):
+            m[pole,pole] += weight-1
+            m[j,j] += weight-1
+            m[pole,j] = -weight*phase*factor
+            m[j,pole] = m[pole,j].conjugate()
+        coefficients = (-m).charpoly().coeffs()
+        assert all(z.imag.contains(0) for z in coefficients)
+        return arb_poly([z.real for z in coefficients])
+    plus, minus, side = (polynomial(z) for z in (1, -1, acb(0,1)))
+    constant = (plus+minus)*arb(".5")
+    return constant, (plus-minus)*arb(".5"), side-constant
+
+
 def verify_vacuum(matrices, pole, orbit, weight):
+    polynomials = {}
     for q, matrix in matrices.items():
-        def polynomial(phase):
-            m = acb_mat(matrix)
-            for j in orbit:
-                m[pole,pole] += weight-1
-                m[j,j] += weight-1
-                m[pole,j] = -weight*phase
-                m[j,pole] = m[pole,j].conjugate()
-            coefficients = (-m).charpoly().coeffs()
-            assert all(z.imag.contains(0) for z in coefficients)
-            return arb_poly([z.real for z in coefficients])
-        plus, minus, side = (polynomial(z) for z in (1, -1, acb(0,1)))
-        constant = (plus+minus)*arb(".5")
-        cosine = (plus-minus)*arb(".5")
-        sine = side-constant
+        constant, cosine, sine = spoke_polynomials(matrix, pole, orbit, weight, acb(1))
         # A phase-dependent permutation uses an oriented cycle on >=3
         # vertices; s^17, s^18 and s^19 are exactly phase independent.
         for poly in (cosine, sine):
@@ -38,7 +44,65 @@ def verify_vacuum(matrices, pole, orbit, weight):
         else:
             margin = -constant*cosine-(cosine**2+sine**2)
             assert len(margin.coeffs()) == 36 and all(t > 0 for t in margin.coeffs())
-    print("Strict free determinant angle monotonicity, for all positive Euclidean squared momenta")
+            curvature = margin**2-sine**2*(constant**2-cosine**2-sine**2)
+            assert len(curvature.coeffs()) == 71 and all(t > 0 for t in curvature.coeffs())
+        polynomials[q] = (constant, cosine, sine)
+    print("Strict free determinant monotonicity and strict convexity of the negative logarithm in cos(angle)")
+    return polynomials
+
+
+def integrate_force(numerator, denominator, tolerance="1e-11"):
+    # Integrate s*N(s)/D(s) in s=16*t and s=16/t. The tail singularity
+    # cancels exactly because deg(D)-deg(N)=3.
+    n, d = numerator.degree(), denominator.degree()
+    assert n == d-3
+    def mapped(poly, reverse):
+        coeff = [v*16**i for i,v in enumerate(poly.coeffs())]
+        return acb_poly(coeff[::-1] if reverse else coeff)
+    result = arb(0)
+    for reverse in (False, True):
+        top, bottom = mapped(numerator, reverse), mapped(denominator, reverse)
+        def integrand(t, analytic):
+            return 256*(1 if reverse else t)*top(t)/bottom(t)
+        val = acb.integral(integrand, 0, 1, rel_tol=arb(tolerance), abs_tol=arb(tolerance)/10)
+        assert val.imag.contains(0) and val.is_finite()
+        result += val.real
+    return result
+
+
+def wilson_force(polynomials, cosine):
+    total = arb(0)
+    for q, multiplicity in ((0,33), (5,18), (10,3)):
+        a,b,d = polynomials[q]
+        if q == 0:
+            numerator, denominator = -b, a+b*cosine
+        else:
+            norm = b**2+d**2
+            numerator = -2*(a*b+norm*cosine)
+            denominator = a**2-d**2+2*a*b*cosine+norm*cosine**2
+        total += multiplicity*integrate_force(numerator,denominator)
+    return total/(8*arb.pi()**2)
+
+
+def relative_curvature(matrices, pole, orbit, weight, c):
+    # The cyclic permutation fixes the common configuration; its derivative
+    # in the (1,-1,0) direction is zero separately in every charge tower.
+    soft["star"]["charged"]["geometry"]()
+    sine = (1-c*c).sqrt()
+    total = arb(0)
+    for q, matrix in matrices.items():
+        values = []
+        for relative in (1, -1, acb(0,1), acb(0,-1)):
+            a,b,d = spoke_polynomials(matrix,pole,orbit,weight,acb(relative))
+            values.append(a+b*c+d*sine)
+        start, opposite, left, right = values
+        # Angular Fourier degree <=2; these four values determine -P''(0).
+        numerator = (start-opposite)*arb(".5")+(start+opposite-left-right)
+        assert all(numerator[k].contains(0) for k in (17,18,19))
+        numerator = arb_poly(numerator.coeffs()[:17])
+        total += {0:33,5:18,10:3}[abs(q)]*integrate_force(numerator,start,"2e-5")
+    return total/(8*arb.pi()**2)
+
 
 def verify():
     ctx.prec = 224
@@ -56,7 +120,7 @@ def verify():
         ordinary[pole,j] = ordinary[j,pole] = 1
     p_minus = fmpq_poly(ordinary.charpoly())
     change = arb(23)/25*arb(2)**-20/(h*h+soft["point"]["study"]["offset"])
-    verify_vacuum({0:base+neutral, 5:signed[5], 10:signed[10]}, pole, orbit, 1-change)
+    polynomials = verify_vacuum({0:base+neutral, 5:signed[5], 10:signed[10]}, pole, orbit, 1-change)
     weyl = arb(0).union(4*change)
     geo = soft["geo"]
     r2 = (geo["theta"](804)/geo["theta"](12))**2
@@ -153,6 +217,35 @@ def verify():
     assert arb("17.1595") < inverse < arb("17.1597")
     print("Three-spoke matter phase (rad), scale GeV, common inverse", angle.str(12),value.str(12),inverse.str(10))
     print("Global spread floor for all native single pair angles", min(gaps).lower().str(11))
+
+    force = wilson_force(polynomials,ball(a)).union(wilson_force(polynomials,ball(b)))
+    edges = {(i,j) for i,j,_,_ in geo["edges"]}
+    assert all(tuple(sorted((pole,j))) in edges for j in range(len(sites)) if j != pole)
+    faces = sum(pole not in edge and len(set(edge).intersection(orbit)) == 1 for edge in edges)
+    print("Flux carrying triangles, total Wilson coefficient, coefficient per face", faces,
+          force.str(12), (force/faces).str(12))
+    assert faces == 27 and arb(".10231448") < force/faces < arb(".10231450")
+    assert all(not set(edge).issubset(orbit) for edge in edges)
+    cbox = ball(a).union(ball(b))
+    relative = relative_curvature({0:base+neutral, **signed},pole,orbit,1-change,cbox)
+    total_relative = relative + 2*cbox*force/3
+    print("Curvature for angular changes (1,-1,0), free and with triangles", relative.str(11),total_relative.str(11))
+    assert -arb(".1076") < total_relative < -arb(".1074")
+    # One unoriented simple square through the pole is fixed by its two
+    # neighbours there and their common intermediate site away from the pole.
+    others = set(range(len(sites)))-{pole}
+    neighbors = {j:{k for k in others if tuple(sorted((j,k))) in edges} for j in others}
+    counts = Counter()
+    for j,k in combinations(others,2):
+        counts[frozenset((j,k)).intersection(orbit)] += len(neighbors[j] & neighbors[k])
+    assert all(counts[frozenset((j,))] == 114 for j in orbit)
+    assert all(counts[frozenset(jk)] == 5 for jk in combinations(orbit,2))
+    single = faces+3*114
+    both_weight = force/single
+    both_relative = total_relative+30*both_weight
+    assert arb(".1170") < both_relative < arb(".1173")
+    print("Triangles and squares: coefficient per loop, transverse curvature",
+          both_weight.str(11),both_relative.str(11))
 
 
 if __name__ == "__main__":
