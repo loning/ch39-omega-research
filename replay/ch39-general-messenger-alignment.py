@@ -8,9 +8,9 @@ scalar = run_path(str(Path(__file__).with_name("ch39-free-complex-messengers.py"
 path_energy = run_path(str(Path(__file__).with_name("ch39-matrix-messenger-path.py")))
 
 
-def verify():
+def verify(energy_slack="0"):
     path_energy["verify"]()
-    scalar["verify"]()
+    scalar["verify"](energy_slack)
     ctx.prec = 160
     r = arb("4e-5")
     R = arb("3e-18")*(arb(25000)/42)**4
@@ -26,7 +26,7 @@ def verify():
     end_cost = R*12*(delta/2).sin()**2/p
     # 试探取三个单位模的等边相位。一圈能上下各用一次一致余项。
     budget = (2*remainder + 4*(C*r**2)**2/(R*dmin)
-              + end_cost + u*3*arb.pi()*(p-1)/2)
+              + end_cost + u*3*arb.pi()*(p-1)/2 + arb(energy_slack))
     eps = (budget/R).sqrt()
     assert eps < arb(".002")
     # 扣除半份原路径能以吸收一圈的标量质量主项。

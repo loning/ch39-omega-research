@@ -8,8 +8,10 @@ radial = run_path(str(Path(__file__).with_name("ch39-radial-fermion-feedback.py"
 free = radial["free"]
 
 
-def verify():
+def verify(energy_slack="0"):
     ctx.prec = 160
+    slack = arb(energy_slack)
+    assert slack >= 0
     r = arb("4e-5")
     energy = arb("3e-18") * (arb(25000)/42)**4
     u = arb("5e-18") * energy
@@ -46,7 +48,7 @@ def verify():
         trial_static = high*chord(beta-p*theta)/2 + energy*sum(
             abs(h-1).upper()**2 + h.upper()*chord(b-p*theta)
             for h,b in zip(products,directions))/p
-        budget = trial_static.upper() + cold*(p-1)
+        budget = trial_static.upper() + cold*(p-1) + slack
         assert trial_static < arb('1.4e-19') and budget < arb('4e-19')
         assert a.lower()-(2*budget/weak).sqrt() > arb(".9999")
         width = (2*budget/strong).sqrt()
@@ -64,8 +66,8 @@ def verify():
         assert all(2<angle and angle<arb("2.2") for angle in angles)
         all_angles.append(angles[0])
         # 若能竞争，每个相位都离 q theta 的某个 2pi 平移不足 .001。
-        max_q = 60000
-        assert hot*(max_q-p)>trial_static
+        max_q = 69000 if slack > 0 else 60000
+        assert hot*(max_q-p)>trial_static + slack
         assert energy*min(h.lower() for h in lengths)*chord(arb(".001")) > max_q*budget
         windows = []
         for orientation in (1,-1):
@@ -85,7 +87,7 @@ def verify():
             fermion = low*max(arb(0),chord(orientation*angles[0]-q*theta).lower())/2
             osc = (hot if q>=p else cold)*(q-p)
             gap_q = fermion+energy*(radial_budget+angle_budget)/q+osc-trial_static.upper()
-            assert gap_q>0, (cell,q,orientation,gap_q)
+            assert gap_q>slack, (cell,q,orientation,gap_q)
             margins.append((gap_q.lower(),q,orientation))
     deviation = max(abs(z[i]-1).upper() for z in all_radii for i in (0,1))
     threshold = (arb(4)/3)*12*r*deviation/(1-r*(1+deviation))/(16*arb.pi()**2)
