@@ -17,39 +17,47 @@ def row(zero):
     return x, study["data"](study["native"]["plane_response"](h))
 
 
-def candidate():
-    rows = [row(acb.zeta_zero(n)) for n in support]
+def attaining_distribution(rows, constraints, targets):
     gaps, obs = zip(*rows)
     a,b,u,v,j = zip(*obs)
-    mat = arb_mat([[1]*4, list(gaps), [a_i-S*(1-u_i) for a_i,u_i in zip(a,u)], list(u)])
-    base = mat.solve(arb_mat([[1],[0],[0],[lo]]))
-    speed = mat.solve(arb_mat([[0],[0],[0],[hi-lo]]))
-    weights = [arb_poly([base[i,0],speed[i,0]]) for i in range(4)]
+    size = len(rows)
+    matrix = arb_mat([[1]*size, list(gaps), *constraints,
+                      [ai-S*(1-ui) for ai,ui in zip(a,u)], list(u)])
+    base = matrix.solve(arb_mat([[t] for t in (1,0,*targets,0,lo)]))
+    speed = matrix.solve(arb_mat([[0]]*(size-1)+[[hi-lo]]))
+    weights = [arb_poly([base[i,0],speed[i,0]]) for i in range(size)]
     U = arb_poly([lo,hi-lo])
     B,V,J = [sum(w*y for w,y in zip(weights,col)) for col in (b,v,j)]
     P = (1-S)*U*(1-U)-(1-U)*V+(S-(1-S)*U)*B
     phase = J-(tau/2)*P
-    assert phase.degree() <= 2 and phase(0)>0>phase(1)
-    assert phase.derivative()(arb(0).union(1)) < 0
+    assert phase.degree() <= 2 and phase(0)*phase(1)<0
+    assert 0 not in phase.derivative()(arb(0).union(1))
     left,right = arb(0),arb(1)
     for _ in range(100):
         mid = (left+right)/2
-        if phase(mid)>0:
+        value = phase(mid)
+        assert 0 not in value
+        if (value>0)==(phase(0)>0):
             left = mid
         else:
-            assert phase(mid)<0
             right = mid
     t = left.union(right)
     probs = [w(t) for w in weights]
     assert all(w>0 for w in probs) and J(t)>0
     second = B(t)/(1-U(t))
     assert arb(".041775")**2 < second < arb(".041885")**2
-    minimum = sum(w*x**2 for w,x in zip(probs,gaps))
+    return probs, [p(t) for p in (U,B,V,J)]
+
+
+def candidate():
+    rows = [row(acb.zeta_zero(n)) for n in support]
+    probs, reference = attaining_distribution(rows, [], [])
+    minimum = sum(w*x**2 for w,(x,_) in zip(probs,rows))
     print("Unique candidate",*(w.str(18) for w in probs),"variance",minimum.str(20), flush=True)
-    return rows, [p(t) for p in (U,B,V,J)], minimum
+    return rows, reference, minimum
 
 
-def dual_at(U, reference, rows):
+def phase_tests(U, reference):
     uc,bc,vc,jc = reference
     cu = (1-S)*(1-U-uc)+vc-(1-S)*bc
     cb = S-(1-S)*U
@@ -57,6 +65,11 @@ def dual_at(U, reference, rows):
         a,b,u,v,j = o
         phase = j-jc-tau/2*(cu*(u-uc)-(1-U)*(v-vc)+cb*(b-bc))
         return a-S*(1-u),phase
+    return tests
+
+
+def dual_at(U, reference, rows):
+    tests = phase_tests(U, reference)
     m = arb_mat([[1,x,*tests(o)] for x,o in rows])
     c = m.solve(arb_mat([[x*x] for x,o in rows]))
     assert c[2,0]>0 and c[3,0]>0
@@ -66,9 +79,10 @@ def dual_at(U, reference, rows):
     return m.det(), c, linear
 
 
-def compare_torus(c, linear):
+def compare_torus(phase_coefficient, linear):
     # 全环面的旧仿射函数小于 0.06。消去四重积系数后，用径向不动轴约束第二行至第三列的味跃迁概率。
-    alpha = c[3,0]/arb("10303.7")
+    alpha = phase_coefficient/arb("10303.7")
+    assert alpha > 0
     def difference(o):
         return linear(o)-alpha*study["dual"](o)
     constant = difference([arb(0)]*5)
@@ -79,7 +93,6 @@ def compare_torus(c, linear):
     bounds = [1,arb(104)/867,1,1]
     upper = alpha*arb(".06")+constant+abs(coefficients[4])
     upper += sum(max(arb(0),k.upper())*b for k,b in zip(coefficients,bounds))
-    assert upper < arb(".095")
     return upper
 
 
@@ -90,7 +103,8 @@ def verify():
     assert -hi + arb(".041775")**2*(1-hi) > 0
     margins = []
     for _,c,linear in duals:
-        upper = compare_torus(c,linear)
+        upper = compare_torus(c[3,0],linear)
+        assert upper < arb(".095")
         slope = c[1,0]
         for n in (8999,15001):
             h = acb.zeta_zero(n).imag
