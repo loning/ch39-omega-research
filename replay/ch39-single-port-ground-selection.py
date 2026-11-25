@@ -16,11 +16,9 @@ def adjoint(matrix):
     return matrix.conjugate().transpose()
 
 
-def readout(T):
-    return (adjoint(v)*T*v)[0,0].real
-
-
-def verify():
+def verify(vector=v, *, allowance=allowance):
+    def readout(T):
+        return (adjoint(vector)*T*vector)[0,0].real
     ctx.prec = 192
     nodes,rows = torus["response_grid"]()
     det0,center = rows[0][0]
@@ -35,7 +33,7 @@ def verify():
     c = study["offset"]
     C = h*h+c
     gap,_ = resolution["spectrum_gap"](0,0,1/C,curvature,allowance,readout=readout)
-    assert gap > arb("5.12e-9")
+    assert gap > 0
     # Show that the original internal block and a single column realize this score.
     native = study["native"]
     phase = study["geo"]["phases"](h)
@@ -43,14 +41,14 @@ def verify():
     phase_matrix = acb_mat(2,2)
     for i,portal in enumerate(native["portals"]):
         phase_matrix[i,i] = shell[portal,native["origin"]]
-    source = native["source"]*phase_matrix*native["columns"].transpose()*v
+    source = native["source"]*phase_matrix*native["columns"].transpose()*vector
     solved = D.solve(source)
     assert abs((adjoint(source)*solved)[0,0]+reference) < arb("1e-32")
     eps = arb(2)**-10
     center_norm = sum(abs(z)**2 for z in solved.entries())
     correction = eps**2*(1/C-reference)*center_norm
     full_gap = eps**2*(gap-correction)
-    assert full_gap > arb("2.15e-15")
+    assert full_gap > 0
     print("Single-port effective gap",gap.str(13),"coupling",eps.str(10),
           "center correction in effective units",correction.str(9),
           "full nineteen-dimensional ground gap",full_gap.str(15))
@@ -63,7 +61,9 @@ def verify():
     # Both theoretical inequalities are strict at the center.
     assert schur(lower.lower())>0 and schur(upper.upper())<0
     print("Ground energy enclosure",lower.union(upper).str(15))
+    return gap,full_gap,lower.union(upper)
 
 
 if __name__ == "__main__":
-    verify()
+    gap,full_gap,_ = verify()
+    assert gap > arb("5.12e-9") and full_gap > arb("2.15e-15")
