@@ -11,6 +11,46 @@ ordered = run_path(str(root / "ch39-ordered-flavor-unitary.py"))
 study,box,edges = (support[k] for k in ("study","box","edges"))
 
 
+def least_clock(lower,upper):
+    center = Fraction(str(float((lower+upper)/2)))
+    # 近似只用于找候选；最短性再用确切相邻分数证明。
+    def inside(f):
+        return lower < arb(f.numerator)/f.denominator < upper
+    lo,hi = 1,1
+    while not inside(center.limit_denominator(hi)):
+        hi *= 2
+    while lo+1<hi:
+        mid=(lo+hi)//2
+        if inside(center.limit_denominator(mid)):
+            hi=mid
+        else:
+            lo=mid
+    best=center.limit_denominator(hi)
+    p,q=best.numerator,best.denominator
+    b=pow(p,-1,q)
+    a=(p*b-1)//q
+    c,d=p-a,q-b
+    assert b>0 and d>0 and c*b-a*d==1
+    assert arb(a)/b < lower < arb(p)/q < upper < arb(c)/d
+    return a,b,p,q,c,d
+
+
+def binary_clock(lower,upper):
+    for bits in range(1,80):
+        denominator=2**bits
+        below=(lower*denominator).floor().unique_fmpz()
+        assert below is not None
+        numerator=int(below)+1
+        f=arb(numerator)/denominator
+        assert 0 not in upper-f
+        if f<upper:
+            break
+    else:
+        raise AssertionError("binary clock unresolved")
+    assert lower<f<upper
+    return bits,numerator,denominator
+
+
 def verify():
     cost,strength,scale,*_ = support["prev"]["setup"]()
     atoms = {}
@@ -42,39 +82,10 @@ def verify():
     assert lower<upper and 0<lower and upper<1
     print("Budget per normalized reading",limit.str(19),"admissible external left share",
           lower.str(20),upper.str(20),flush=True)
-    center = Fraction(str(float((lower+upper)/2)))
-    # 近似只用于找候选；最短性再用确切相邻分数证明。
-    def inside(f):
-        return lower < arb(f.numerator)/f.denominator < upper
-    lo,hi = 1,1
-    while not inside(center.limit_denominator(hi)):
-        hi *= 2
-    while lo+1<hi:
-        mid=(lo+hi)//2
-        if inside(center.limit_denominator(mid)):
-            hi=mid
-        else:
-            lo=mid
-    best=center.limit_denominator(hi)
-    p,q=best.numerator,best.denominator
-    b=pow(p,-1,q)
-    a=(p*b-1)//q
-    c,d=p-a,q-b
-    assert b>0 and d>0 and c*b-a*d==1
-    assert arb(a)/b < lower < arb(p)/q < upper < arb(c)/d
+    a,b,p,q,c,d=least_clock(lower,upper)
     print("Farey parents and shortest",a,b,p,q,c,d)
-    for bits in range(1,80):
-        denominator=2**bits
-        below=(lower*denominator).floor().unique_fmpz()
-        assert below is not None
-        numerator=int(below)+1
-        f=arb(numerator)/denominator
-        assert 0 not in upper-f
-        if f<upper:
-            break
-    else:
-        raise AssertionError("binary clock unresolved")
-    assert lower<f<upper
+    bits,numerator,denominator=binary_clock(lower,upper)
+    f=arb(numerator)/denominator
     print("First binary external clock",bits,numerator,denominator)
     cube=[v+arb(0,arb(2)**-28) for v in box["centers"]]
     # 在整个可分辨开区间闭包上检查相同乘积的四项风味读数。
