@@ -4,7 +4,7 @@ from pathlib import Path
 from runpy import run_path
 
 from flint import acb, arb, ctx
-from sympy import Matrix, Rational, eye
+from sympy import Rational, eye
 
 root = Path(__file__).parent
 absolute = run_path(str(root/"ch39-fermion-absolute-matching.py"))
@@ -22,22 +22,34 @@ def verify():
     # 七份单态跳，分别在两个极点连续传三步和四步，两条跨点边闭环。
     states = [('A',j*k) for j in range(4)]+[('B',j*k%p) for j in range(3,8)]
     assert len(set(states)) == len(states) == 9
+    check_ring(states, [k]*repetitions, len(charges)-1, total_error_weight)
+    assert Fraction(-16,3)+4*Fraction(4,3)==0
+    assert Fraction(-16,3)+5*Fraction(4,3)==Fraction(4,3)
+
+
+def check_ring(states, singlet_steps, field_count, total_error_weight):
+    p = 23226
+    size = len(states)
+    assert size == len(singlet_steps)+2 and size%2 == 1
+    assert sum(singlet_steps) == p and len(set(states)) == size
     hops = []
+    actual_steps = []
     for i, (site,q) in enumerate(states):
-        other,charge = states[(i+1)%len(states)]
+        other,charge = states[(i+1)%size]
         if site==other:
-            assert (charge-q)%p == k
+            actual_steps.append((charge-q)%p)
             hops.append(Rational(1,2))
         else:
             assert charge==q
             hops.append(Rational(1,5000))
-    mass = eye(9)
+    assert actual_steps==singlet_steps
+    mass = eye(size)
     for i,r in enumerate(hops):
-        mass[(i+1)%9,i] = r
+        mass[(i+1)%size,i] = r
     # 由 det(tI+H) 的常数、一次和二次项读出两个逆质量矩。
     coefficients = (-(mass.T*mass)).charpoly().all_coeffs()
     rational = lambda x: arb(int(x.p))/int(x.q)
-    prod = arb(1)/(2**7*5000**2)
+    prod = arb(1)/(2**len(singlet_steps)*5000**2)
     assert rational(coefficients[-1]).overlaps((1+prod)**2)
     def moment_bounds(cosine):
         c0 = 1+prod**2+2*prod*cosine
@@ -48,15 +60,15 @@ def verify():
     second = abs(p*absolute["angle"](1144)-14*arb.pi()/3)
     margin = arb("2e-6")
     # 所有正谱的初等对称均值夹在几何与算术均值的相应幂之间。
-    average = 1+(arb(7)/4+arb(2)/5000**2)/9
-    geometric_lower = ((1-prod)**2)**(arb(1)/9)
-    normalization = 4*2*prod/(8*arb.pi()**2*56)
-    slope_lower = normalization/average**7
-    slope_upper = normalization/geometric_lower**7
+    average = 1+(arb(len(singlet_steps))/4+arb(2)/5000**2)/size
+    geometric_lower = ((1-prod)**2)**(arb(1)/size)
+    normalization = 4*2*prod/(8*arb.pi()**2*(size-1)*(size-2))
+    slope_lower = normalization/average**(size-2)
+    slope_upper = normalization/geometric_lower**(size-2)
     gap = slope_lower*((target+margin).cos()-(second-margin).cos())
     bias = slope_upper*2*((target+margin)/2).sin()**2
     thermal_scale, stiffness = arb("1e24"),arb("1e25")
-    tail = ((len(charges)-1)*arb.pi()*stiffness.sqrt()*
+    tail = (field_count*arb.pi()*stiffness.sqrt()*
             (arb(1)/2-2*stiffness*(margin/(2*total_error_weight)).sin()**2).exp())
     reference = (1+arb.const_euler()/2-(4*arb.pi()).log()/2)*(arb(1)/4+acb.zeta_zero(11431).imag**2)
     error = 2*reference*((-thermal_scale*gap).exp()+tail*(thermal_scale*bias).exp())/(1-tail)
@@ -85,9 +97,7 @@ def verify():
     worst = max(abs(x).upper() for x in outputs)
     assert worst < arb(2)**-21
     assert mass_ratio/(5000*arb("5e-10").sqrt()*1000*arb(".999"))<arb(".896")
-    assert Fraction(-16,3)+4*Fraction(4,3)==0
-    assert Fraction(-16,3)+5*Fraction(4,3)==Fraction(4,3)
-    print("时钟标量数",len(charges)-1,"净角势斜率界",slope_lower.str(9),slope_upper.str(9),
+    print("费米子标签数",size,"时钟标量数",field_count,"净角势斜率界",slope_lower.str(9),slope_upper.str(9),
           "错配上界",error.str(10),"尺度移量",offset.str(11),"规范残差上界",worst.str(11))
 
 
