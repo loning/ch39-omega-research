@@ -1,4 +1,5 @@
 """全谱任意切换下的 CKM 与规范、端口联合检验。"""
+from argparse import ArgumentParser
 from pathlib import Path
 from runpy import run_path
 
@@ -10,7 +11,6 @@ free = run_path(str(root / "ch39-center-free-three-pulses.py"))
 study, box, ordered, flavor = (free[key] for key in ("study", "box", "ordered", "flavor"))
 entries = free["entries"]
 center = 11431
-cell_count = 1024
 
 
 
@@ -23,7 +23,8 @@ def operator_norm(matrix):
     return abs(mean) + ((matrix[0, 0].real-mean)**2 + abs(matrix[0, 1])**2).sqrt()
 
 
-def verify():
+def verify(second_angle=False):
+    cell_count = 4096 if second_angle else 1024
     point, scale, eps = local["model"]()
     cost, *_ = local["support"]["prev"]["setup"]()
     cap = 2*eps/scale
@@ -36,7 +37,9 @@ def verify():
     modes = free["three"]["spectral_modes"](center_response, coefficients)
     reference = flavor["radial"] + basis*ordered["evolution"](center_response, arb(1), coefficients)*basis.transpose()
     values = [reference[i, j] for i, j in entries]
-    beta = arb(34)/100
+    beta = arb(932)/1000 if second_angle else arb(34)/100
+    angle = 1 if second_angle else 0
+    max_tilt = arb(".002") if second_angle else arb(".011")
     unit_angle, unit_phase = arb(".000055"), arb(".006")
     signs = (1, 1, -1, -1)
     projectors = [acb_mat([[basis[i, a]*basis[j, b]/value for b in range(2)] for a in range(2)])
@@ -54,23 +57,34 @@ def verify():
         for sign, gauge, price in zip((1, -1), gauges, prices):
             add(name + str(sign), -acb(0, sign)*projectors[i], gauge, price)
     phase_matrix = sum((-acb(0, s)*p for s, p in zip(signs, projectors)), acb_mat(2, 2))
-    for sign, gauge, price in ((-1, "-2.521", ".793"), (1, "-2.344", ".691")):
-        tilt = arb(sign)*arb(".011")
-        matrix = (beta*abs(values[0])/unit_angle * (1-acb(0, tilt))*projectors[0]
+    norm_bonus = {}
+    center_price = {}
+    if second_angle:
+        cases = [(f"small{sign}", sign, "-2.418", "1.015", "1.715", "0") for sign in (-1, 1)]
+        cases += [(f"large{sign}", sign, "-1.057", "1.161", "0", "1089") for sign in (-1, 1)]
+    else:
+        cases = [("score-1", -1, "-2.521", ".793", None, "0"),
+                 ("score1", 1, "-2.344", ".691", None, "0")]
+    for name, sign, gauge, price, occupation_price, bonus in cases:
+        tilt = sign*max_tilt
+        matrix = (beta*abs(values[angle])/unit_angle * (1-acb(0, tilt))*projectors[angle]
                   + (1-beta)/unit_phase*phase_matrix)
-        add("score" + str(sign), matrix, gauge, price)
+        add(name, matrix, gauge, price)
+        norm_bonus[name] = arb(bonus)
+        if occupation_price is not None:
+            center_price[name] = arb(occupation_price)
     dual_norms = [arb(1) if m is None else nuclear(m) for _, m, _, _ in tests]
     max_contrast = abs(eta)*2/(arb("1.3")-4*arb.pi()/32)
-    floor = [arb(-1) if name != "norm" and not name.startswith("score") else
-             arb(-150) if name.startswith("score") else arb("-0.1").upper() for name, *_ in tests]
+    floor = [arb(-1) if name != "norm" and name not in norm_bonus else
+             arb(-150) if name in norm_bonus else arb("-0.1").upper() for name, *_ in tests]
 
     low, high = 9400, 14000
     for n, direction in ((low, 1), (high, -1)):
         _, x, c = point(n)
         _, derivative = cost(x)
-        for (_, _, g, h), nn, cut in zip(tests, dual_norms, floor):
+        for (name, _, g, h), nn, cut in zip(tests, dual_norms, floor):
             assert direction*(10000*g + h*derivative/cap) > 0
-            assert nn*max_contrast - g*10000*x - h*c/cap < cut, n
+            assert (nn+norm_bonus.get(name,0))*max_contrast - g*10000*x - h*c/cap < cut, n
     freq = modes[1][0] - modes[0][0]
     phases = [(acb(0, freq*(arb(k).union(k+1)/cell_count)).exp()) for k in range(cell_count)]
     envelopes = [[cut for _ in phases] for cut in floor]
@@ -83,8 +97,8 @@ def verify():
         for a, qa in modes:
             for _, qb in modes:
                 waves.append(acb(0, 1)*acb(0, a).exp()*qa*diff*qb)
-        for j, ((_, matrix, g, h), nn) in enumerate(zip(tests, dual_norms)):
-            penalty = 10000*g*x + h*c/cap
+        for j, ((name, matrix, g, h), nn) in enumerate(zip(tests, dual_norms)):
+            penalty = 10000*g*x + h*c/cap - norm_bonus.get(name,0)*norm
             if nn*norm-penalty < floor[j]:
                 continue
             if matrix is None:
@@ -113,14 +127,16 @@ def verify():
                 continue
             x = study["center"]/(zero.imag**2+study["offset"])-1
             c, _ = cost(x)
-            if all(nn*max_contrast - 10000*g*x - h*c/cap < cut
-                   for (_, _, g, h), nn, cut in zip(tests, dual_norms, floor)):
+            if all((nn+norm_bonus.get(name,0))*max_contrast - 10000*g*x - h*c/cap < cut
+                   for (name, _, g, h), nn, cut in zip(tests, dual_norms, floor)):
                 continue
             examine(x, c, response(zero.imag))
     def at_center_limit(center_limit):
         bounds = {}
         for (name, _, g, h), row in zip(tests, envelopes):
-            correction = center_limit*max(arb(0), -min(row))
+            price = center_price.get(name, max(arb(0), -min(row)))
+            row = [max(v, -price) for v in row]
+            correction = center_limit*price
             bounds[name] = sum(row)/cell_count + abs(g)*10000*eps + h + correction
         norm = bounds["norm"]
         assert 0 < norm < arb(".012")
@@ -132,7 +148,7 @@ def verify():
         assert all(v < 1 for v in crude)
         ybounds = {i: bounds[name+"1"].max(bounds[name+"-1"]) + remainder*attenuation[i]/abs(values[i])
                    for i,name in ((0,"us"), (1,"cb"), (3,"cs"))}
-        if not ybounds[0]/(2*(1-crude[0])) < arb(".011"):
+        if not ybounds[angle]/(2*(1-crude[angle])) < max_tilt:
             return None
         ub_min, ub_max = arb(".003677"), arb(".003787")
         c13min, c13max = (1-ub_max**2).sqrt(), (1-ub_min**2).sqrt()
@@ -154,20 +170,28 @@ def verify():
         # |theta-Im z| <= |1-rho| |theta| + rho |theta|^3/6 .
         angle_error = sum(abs(1-a).max(abs(1-b))*theta[i] + b*theta[i]**3/6
                           for i,(a,b) in enumerate(ratios))
-        offset = beta*(abs(values[0])-min_us)/unit_angle + (1-beta)*(phase0-lo)/unit_phase
+        angle_floor = min_cb if second_angle else min_us
+        offset = beta*(abs(values[angle])-angle_floor)/unit_angle + (1-beta)*(phase0-lo)/unit_phase
         assert 0 < lo < hi < arb.pi()/2 and 0 < phase0 < arb.pi()/2
         results = []
-        for j in (-2, -1):
+        for j in range(len(tests)-len(cases), len(tests)):
             name = tests[j][0]
-            upper = offset + bounds[name] + dual_norms[j]*remainder + (1-beta)*angle_error/unit_phase
+            norm_limit = arb(".003") if name.startswith("small") else norm
+            bonus = norm_bonus[name]*arb(".003")
+            upper = (offset + bounds[name] - bonus + dual_norms[j]*norm_limit**2/2
+                     + (1-beta)*angle_error/unit_phase)
             results.append(upper)
         return norm, angle_error, results
-    norm, angle_error, scores = at_center_limit(arb(46)/1000)
-    assert all(v < 0 for v in scores)
-    print("Certified center share greater than 46 / 1000")
+    share = 185 if second_angle else 46
+    norm, angle_error, scores = at_center_limit(arb(share)/1000)
+    print("Testing center share", share, "/ 1000")
     print("Integrated norm upper", norm.upper().str(12), "phase error upper", angle_error.upper().str(12),
           "score upper bounds", *(v.upper().str(12) for v in scores))
+    assert all(v < 0 for v in scores)
+    print("Certified center share greater than", share, "/ 1000")
 
 
 if __name__ == "__main__":
-    verify()
+    parser = ArgumentParser()
+    parser.add_argument("--second-angle", action="store_true", help="改用第二混合角与分段范数界")
+    verify(second_angle=parser.parse_args().second_angle)
