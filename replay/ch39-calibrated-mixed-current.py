@@ -63,7 +63,7 @@ def collect(logs, time, targets, mass_error):
                          (ee,zz,bb,dd,triplet,t,origin,L), targets, (q(".5"),q(1)))
 
 
-def probe_records(reference, fitted, targets, log_ratios):
+def probe_records(reference, fitted, targets, log_ratios, source=mixed):
     e,z,b,d,nominal_triplet,h0,k0,ref0 = reference
     ee,zz,bb,dd,triplet,t,origin,L = fitted
     records = []
@@ -77,7 +77,7 @@ def probe_records(reference, fitted, targets, log_ratios):
         base = dressed(tree,a,k0)
         col = tree*family
         coef = col.transpose()*(eye-a*tree*k0).inv()*a
-        cross_target = form(mixed,direct,mixed)*form(mixed,origin,mixed)/form(mixed,ref0,mixed)
+        cross_target = form(source,direct,source)*form(source,origin,source)/form(source,ref0,source)
         records.append((tree,a,col,coef,dest-base[0,0],dest,cross_target))
     x1,x2 = (log_x.exp() for log_x in log_ratios)
     threshold = 4*triplet**2/ee
@@ -86,25 +86,33 @@ def probe_records(reference, fitted, targets, log_ratios):
     return records, k0, ks, cap, t
 
 
-def separate(interval, records, k0, cap, required):
+def exchange_bounds(interval, records, k0, cap):
     graphs, limits = [], []
     for i,(tree,a,col,coef,offset,target,_) in enumerate(records):
         inv = eye-tree*a*interval
         if inv.det().contains(0):
-            return False
+            return None
         g = inv.inv()*tree
         w = (eye-a*tree*interval).inv()*a
         gap = offset+(k0-interval)*(coef*(col+tree*w*col*interval))[0,0]
         graphs.append(g)
         limits.append(gap+(-1 if i==0 else 1)*q("2e-8")*target)
     if not all(v>0 for v in limits):
-        return False
+        return None
     first,second = graphs
     metric = second-first*cap
     if not mat["positive"](metric):
+        return None
+    return first, second, limits, metric
+
+
+def separate(interval, records, k0, cap, required, source=mixed):
+    bounds = exchange_bounds(interval,records,k0,cap)
+    if bounds is None:
         return False
+    first,second,limits,metric = bounds
     inv = metric.inv()
-    u,v,w = first*family,second*family,second*mixed
+    u,v,w = first*family,second*family,second*source
     axes = arb_mat([[v[i,0],w[i,0]] for i in range(3)])
     mid = lambda m: arb_mat([[m[i,j].mid() for j in range(m.ncols())] for i in range(m.nrows())])
     trans = mid(axes).transpose()*mid(inv)
@@ -118,17 +126,17 @@ def separate(interval, records, k0, cap, required):
     slack = (limits[0]/cap).sqrt()-abs(alpha)*limits[1].sqrt()-noise
     if not slack>0 or beta.contains(0):
         return False
-    return form(mixed,second,mixed)+(slack/abs(beta))**2 > required
+    return form(source,second,source)+(slack/abs(beta))**2 > required
 
 
-def identify(records,k0,ks,cap):
+def identify(records,k0,ks,cap,source=mixed,separator=separate):
     required = (records[1][-1]*(1+q(".00002"))).upper()
     stack = [(q(0),ks[0].upper())]
     count = 0
     while stack:
         left,right = stack.pop()
         try:
-            certified = separate(left.union(right),records,k0,cap,required)
+            certified = separator(left.union(right),records,k0,cap,required,source)
         except ZeroDivisionError:
             certified = False
         if certified:

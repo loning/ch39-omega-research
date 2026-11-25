@@ -14,7 +14,7 @@ shape_source = cal["inv_basis"]*arb_mat([[3],[-1],[2]])
 hyper_source = cal["calibration"]
 
 
-def collect(logs, time, targets, mass_error, shape_error):
+def collect(logs, time, targets, mass_error, shape_error, source=cal["mixed"]):
     (scale,z,rho,eta,c,masses),_,_ = poles["retune"]["predictions"](logs,time)
     c1 = poles["reference_readings"](logs)[0]
     b,d,k0 = c/rho,eta/rho,1/rho
@@ -54,7 +54,7 @@ def collect(logs, time, targets, mass_error, shape_error):
     assert t > 0 and dd.contains(d) and t.contains(h0/k0)
     origin += cal["hypercharge"]*t
     records = cal["probe_records"]((e,z,b,d,masses[0],h0,k0,ref0),
-                                   (ee,zz,bb,dd,triplet,t,origin,length),targets,logs_x)
+                                   (ee,zz,bb,dd,triplet,t,origin,length),targets,logs_x,source)
     return records, dd
 
 
