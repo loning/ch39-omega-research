@@ -62,13 +62,17 @@ def polynomial():
     a,b = system.solve(arb_mat([[row[2]] for row in gradients])).entries()
     print("Supporting coefficients",a.str(18),b.str(18),flush=True)
     scores = [[a*x+b*y-z-curvature*d for x,y,z,d in row] for row in values]
+    return a,b,torus_coefficients(scores)
+
+
+def torus_coefficients(scores):
     first = [fourier(row) for row in scores]
     full = [fourier([row[j%size] for row in first]) for j in range(-degree,degree+1)]
     coeff = {(i,j):full[j+degree][i%size] for i in range(-degree,degree+1) for j in range(-degree,degree+1)}
-    return a,b,coeff
+    return coeff
 
 
-def certify(coeff):
+def certify(coeff, *, stationary_origin=True):
     # 递归方格上的 Taylor 下界；原点附近直接检验 Hessian。
     active = {ij:v for ij,v in coeff.items() if abs(v).upper()>arb("1e-13")}
     errors = {}
@@ -77,19 +81,21 @@ def certify(coeff):
     def global_bound(p,q):
         return errors[p,q]+sum(abs(v).upper()*abs(i)**p*abs(j)**q for (i,j),v in active.items())
     m20,m11,m02 = [global_bound(*ij) for ij in ((2,0),(1,1),(0,2))]
-    third = [global_bound(p,3-p) for p in range(4)]
-    h0,h1,h2 = [sum((v*acb(0,i)**p*acb(0,j)**q).real for (i,j),v in coeff.items())
-                for p,q in ((2,0),(1,1),(0,2))]
-    radius = arb(1)/8
-    while True:
-        left = h0-radius*(third[3]+third[2])
-        cross = abs(h1)+radius*(third[2]+third[1])
-        right = h2-radius*(third[1]+third[0])
-        if left>0 and right>0 and left*right>cross**2:
-            break
-        radius /= 2
-        assert radius>arb(2)**-18
-    print("Local strictly convex square half-width",radius.str(9),"active modes",len(active),flush=True)
+    radius = arb(0)
+    if stationary_origin:
+        third = [global_bound(p,3-p) for p in range(4)]
+        h0,h1,h2 = [sum((v*acb(0,i)**p*acb(0,j)**q).real for (i,j),v in coeff.items())
+                    for p,q in ((2,0),(1,1),(0,2))]
+        radius = arb(1)/8
+        while True:
+            left = h0-radius*(third[3]+third[2])
+            cross = abs(h1)+radius*(third[2]+third[1])
+            right = h2-radius*(third[1]+third[0])
+            if left>0 and right>0 and left*right>cross**2:
+                break
+            radius /= 2
+            assert radius>arb(2)**-18
+        print("Local strictly convex square half-width",radius.str(9),"active modes",len(active),flush=True)
     stack = [(0,0,1)]
     visited = 0
     zero_approx = arb(0)
@@ -116,7 +122,7 @@ def certify(coeff):
             continue
         assert level < 2**18,(i,j,level)
         stack.extend((2*i+p,2*j+q,2*level) for p in (-1,1) for q in (-1,1))
-    print("Certified positive outside central square, visited",visited,"cells")
+    print("Certified torus cells outside half-width",radius.str(9),"visited",visited)
 
 
 if __name__ == "__main__":

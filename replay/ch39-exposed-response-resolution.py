@@ -18,11 +18,7 @@ def zero_count(height):
     return int(count)
 
 
-def verify():
-    ctx.prec = 192
-    A, B, polynomial = certificate["polynomial"]()
-    # The global torus bound and the block inverse bound are replayed by the
-    # companion certificate. All uses of their constants are explicit below.
+def spectrum_gap(A, B, slope, curvature, allowance, *, individual=()):
     height = acb.zeta_zero(center_index).imag
     offset = study["offset"]
     numerator = height**2 + offset
@@ -39,13 +35,13 @@ def verify():
                 + B*diff[0,1].real - diff[0,1].imag)
 
     def check(index, h):
-        if index == center_index:
+        if index == center_index or index in individual:
             return
         target = slope * ratio(h)
         angle = h-height
-        lower = certificate["curvature"] * (4-2*(a*angle).cos()-2*(b*angle).cos())
+        lower = curvature * (4-2*(a*angle).cos()-2*(b*angle).cos())
         if not lower > target:
-            assert score(h) > target, index
+            assert score(h)+allowance > target, index
 
     start = 200
     for index, zero in enumerate(acb.zeta_zeros(1, zero_count(start)), 1):
@@ -61,7 +57,7 @@ def verify():
     for k in range(first, last+1):
         mid = height+k*step
         cell_min = max(arb(start), (mid-step/2).lower())
-        target = slope*ratio(cell_min)/certificate["curvature"]
+        target = slope*ratio(cell_min)/curvature
         # For |t| <= pi, 2-2*cos(t) >= (2*t/pi)^2.
         half_width = (pi/(2*a)*target.sqrt()).upper()
         window = arb(mid, half_width)
@@ -81,9 +77,16 @@ def verify():
     print("Phase cells, remaining windows, zero indices in enlarged windows",
           last-first+1, windows, candidates)
 
-    gap = slope*(1-ratio(arb(cutoff)))
+    gap = slope*(1-ratio(arb(cutoff)))-allowance
     h2 = acb.zeta_zero(2).imag
     upper = score(h2)/ratio(h2)
+    return gap,upper
+
+
+def verify():
+    ctx.prec = 192
+    A,B,_ = certificate["polynomial"]()
+    gap,upper = spectrum_gap(A,B,slope,certificate["curvature"],arb(0))
     assert gap > arb("1.59808e-8") and upper < arb("1.598284e-8")
     print("Exact gauge mean, no center: certified lower and asymptotic upper",
           gap.str(17), upper.str(17))
@@ -91,7 +94,7 @@ def verify():
     # Opposite gains cancel even orders of the ordered evolution.
     gain = arb(2)**-20
     norm = arb(9)/4
-    assert norm > 2/(arb("1.3")-4*pi/32)
+    assert norm > 2/(arb("1.3")-4*arb.pi()/32)
     functional_norm = (1+A*A+B*B).sqrt()
     error = 2*functional_norm*norm*((gain*norm).cosh()-1)
     finite_gap = gap-error
