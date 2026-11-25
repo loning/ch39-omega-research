@@ -88,6 +88,7 @@ def verify():
         assert arb("1.2365e13") < scale < arb("1.2367e13")
         print("共同重质量的最少附加弱三重态数、匹配能标、重质量、共同逆耦合",
               triplets,scale.str(12),mass.str(12),common.str(12))
+        return scale, mass
 
 
 if __name__ == "__main__":
