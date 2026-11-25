@@ -62,16 +62,29 @@ def pole_resolvent(vertices,lengths,tree_count,*, edge_filter=None):
 primary_logs = ("24.3145558253697","26.71304007023748","26.81725683017028")
 
 
-def parameters(logs=primary_logs,*,include_graphs=False):
-    ctx.prec=192
-    data=run_path(str(root/"ch39-published-gauge-inputs.py"))
-    log_q=data["q"](logs[2])
-    shared=data["model"]["target"](11431,log_q)
+def graph_constants():
     layers=graph["site_choices"]()
     chosen=[min((a for a in layer if a[1:3]==target),key=lambda a:a[3])
             for layer,target in zip(layers,[(18,243),(18,27),(15,12)],strict=True)]
     x,_,common=graph["mass_solution"](chosen)
     unit=(2*x).exp()
+    points=[p for p in product(range(30),repeat=3) if sum(y*y for y in p)==867]
+    def orbit(p):
+        return tuple(sorted(p))
+    outer,middle,next_to,inner,pole=(1,5,29),(7,17,23),(11,11,25),(13,13,23),(17,17,17)
+    colour=[p for p in points if orbit(p) in (outer,middle,next_to)]
+    right=[p for p in points if orbit(p) in (middle,next_to,inner,pole)]+[pole]
+    gc=pole_resolvent(colour,(32,152,72,56),243)
+    gr=pole_resolvent(right,(56,12,68),12)
+    return unit,common,gc,gr
+
+
+def parameters(logs=primary_logs,*,include_graphs=False):
+    ctx.prec=192
+    data=run_path(str(root/"ch39-published-gauge-inputs.py"))
+    log_q=data["q"](logs[2])
+    shared=data["model"]["target"](11431,log_q)
+    unit,common,gc,gr=graph_constants()
     g=(shared/15+common/(48*arb.pi()**2))**(-arb(1)/2)
     m3,m8=[(data["q"](s)-log_q).exp() for s in logs[:2]]
     d=(m8*m8-m3*m3).sqrt()
@@ -88,14 +101,6 @@ def parameters(logs=primary_logs,*,include_graphs=False):
     for v in (vc+4*d.log()+onsite.log(),(8*vc+6*vr+2*d.log()+8*onsite.log())/5):
         assert v.contains(0) and abs(v)<arb("1e-22")
     assert unit/64>m3*m3
-    points=[p for p in product(range(30),repeat=3) if sum(y*y for y in p)==867]
-    def orbit(p):
-        return tuple(sorted(p))
-    outer,middle,next_to,inner,pole=(1,5,29),(7,17,23),(11,11,25),(13,13,23),(17,17,17)
-    colour=[p for p in points if orbit(p) in (outer,middle,next_to)]
-    right=[p for p in points if orbit(p) in (middle,next_to,inner,pole)]+[pole]
-    gc=pole_resolvent(colour,(32,152,72,56),243)
-    gr=pole_resolvent(right,(56,12,68),12)
     def active(energy,derivative=False):
         return g*g*(3*gc(energy,unit,derivative)/8+gr(energy,unit,derivative)/4)
     result = (g,u,w,m3,h,active)
