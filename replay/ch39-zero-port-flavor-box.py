@@ -78,12 +78,18 @@ def phase_system(weights, xs, point_rows):
 
 def verify():
     ctx.prec = 224
-    cost, strength = joint["port_cost"]()
+    cost, strength, tangent = joint["port_cost"](include_tangent=True)
+    scale = -strength/tangent
+    theta = arb(0).union(1)
+    assert scale>0
     heights = [acb.zeta_zero(n).imag for n in sharp["support"]]
     inputs = [study["native"]["plane_response"](h) for h in heights]
-    xs = [study["center"]/(h*h+study["offset"])-1 for h in heights]
+    unshifted = [study["center"]/(h*h+study["offset"])-1 for h in heights]
+    costs = [cost(x)[0] for x in unshifted]
+    xs = [x+theta*scale*y for x,y in zip(unshifted,costs)]
+    middle = [x+scale*y/2 for x,y in zip(unshifted,costs)]
     central = [flavor_data(t,centers)[0] for t in inputs]
-    weights, _ = sharp["attaining_distribution"](list(zip(xs,central)),[],[])
+    weights, _ = sharp["attaining_distribution"](list(zip(middle,central)),[],[])
     mid = [w.mid() for w in weights]
     r = arb(2)**-28
     data = [tight_data(t,centers,[r]*4) for t in inputs]
@@ -108,7 +114,7 @@ def verify():
         box = [a.intersection(b) for a,b in zip(box,image)]
     assert all(w>0 for w in box)
     _, jac, delta = phase_system(box,xs,values)
-    multipliers = jac.transpose().solve(arb_mat([[cost(x)[0]] for x in xs]))
+    multipliers = jac.transpose().solve(arb_mat([[y] for y in costs]))
     signs = []
     for j in range(4):
         mean = [sum(w*point[j][k] for w,point in zip(box,derivatives)) for k in range(5)]
@@ -126,7 +132,6 @@ def verify():
     assert arb(".041775")**2 < mean[1]/(1-mean[2]) < arb(".041885")**2
     assert mean[4]>0
     endpoint_data = []
-    costs = [cost(x)[0] for x in xs]
     for u in (sharp["lo"],sharp["hi"]):
         tests = sharp["phase_tests"](u, reference)
         uc,bc,vc,jc = reference
@@ -143,6 +148,7 @@ def verify():
         dual=center_dual+mat.solve(rhs-mat*center_dual)
 
         assert mat.det()>0 and dual[2,0]>0 and dual[3,0]>0
+        assert 1-theta*scale*dual[1,0]>0 and 1+(1-theta)*scale*dual[1,0]>0
         def normalized(obs):
             a,b=tests(obs)
             return dual[2,0]/dual[3,0]*a+b
@@ -151,15 +157,20 @@ def verify():
         for n in (8999,15001):
             x, _ = sharp["row"](acb.zeta_zero(n))
             value, dx = cost(x)
-            assert (dx>dual[1,0] if n==8999 else dx<dual[1,0])
-            assert value-dual[1,0]*x > candidate_mean+upper
+            derivative = dx/(1+theta*scale*dx)
+            assert (derivative>dual[1,0] if n==8999 else derivative<dual[1,0])
+            assert value-dual[1,0]*(x+theta*scale*value) > candidate_mean+upper
         endpoint_data.append((dual, diff_features))
     corner = [center-sign*r for sign,center in zip(signs,centers)]
     corner_rows=[flavor_data(t,corner)[0] for t in inputs]
-    corner_weights,_=sharp["attaining_distribution"](list(zip(xs,corner_rows)),[],[])
-    optimum=sum(w*v for w,v in zip(corner_weights,costs))*strength
-    assert arb("5.86817769346475e-25") < optimum < arb("5.86817769346477e-25")
-    print("Candidate corner gap",optimum.str(22),flush=True)
+    for t in (arb(0),arb(1)/2,arb(1)):
+        coord = [x+t*scale*y for x,y in zip(unshifted,costs)]
+        corner_weights,_=sharp["attaining_distribution"](list(zip(coord,corner_rows)),[],[])
+        optimum=sum(w*v for w,v in zip(corner_weights,costs))
+        if t==0:
+            assert arb("5.86817769346475e-25") < optimum*strength < arb("5.86817769346477e-25")
+        print("Flavor box, budget direction",t.str(3),"gauge tolerance",
+              (t*scale*optimum).str(23),"port tolerance",((1-t)*strength*optimum).str(23),flush=True)
     slopes=[row[0]+S*row[2]-S for row in values]
     mat=arb_mat([[1]*4,xs,slopes,[row[2] for row in values]])
     base=mat.solve(arb_mat([[1],[0],[0],[sharp["lo"]]]))
@@ -181,19 +192,21 @@ def verify():
                 continue
             h = zero.imag
             x = study["center"]/(h*h+study["offset"])-1
-            value = cost(x)[0]-costs[0]
+            cost_at_x = cost(x)[0]
+            value = cost_at_x-costs[0]
+            coord_difference = x-unshifted[0]+theta*scale*value
             t = study["native"]["plane_response"](h)
             obs = observations(flavor["mixing"](t,coeff_box))
             for dual,features in endpoint_data:
                 def margin(o):
                     a,p=features(o,values[0])
-                    return value-dual[1,0]*(x-xs[0])-dual[2,0]*a-dual[3,0]*p
+                    return value-dual[1,0]*coord_difference-dual[2,0]*a-dual[3,0]*p
                 gap=margin(obs)
                 if not gap>0:
                     gap=margin(tight_data(t,centers,[r]*4)[0])
                 assert gap>0, (n,str(gap))
                 floor=min(floor,gap.lower())
-    print("Certified minimum strict slack in the flavor coefficient box",floor.str(14))
+    print("Strict slack for all error budgets and common flavor coefficients",floor.str(14))
 
 
 if __name__ == "__main__":
