@@ -34,8 +34,9 @@ def verify():
             P=read(lo,hi,64,arb(3))[3][0]
             margins.append((sign*P).lower())
         print("K face signed P lower",K.str(8),min(margins).str(9))
-        assert min(margins)>0
+        assert min(margins) > (arb(".03318") if sign == -1 else arb(".2529"))
     both=[]
+    scale_margins = {1: [], -1: []}
     for j in range(16):
         a=kmin*(kmax/kmin)**(arb(j)/16)
         b=kmin*(kmax/kmin)**(arb(j+1)/16)
@@ -43,7 +44,18 @@ def verify():
         for L,sign in ((Lmin,1),(Lmax,-1)):
             J=read(L,L,64,arb(3))[3][1]
             assert sign*J>0,(j,J)
+            scale_margins[sign].append((sign*J).lower())
         both.append(read(Lmin,Lmax,64,arb(3))[3][2])
+    for sign, margins in scale_margins.items():
+        print("Scale face signed J lower", sign, min(margins).str(9))
+        assert min(margins) > (arb("5.346") if sign == 1 else arb("2.583"))
+    # A zero-sum projection costs at most its sum of positive weights times
+    # the spread of a correction. For a hypercharge-only correction use
+    # its individual P and J coefficients.
+    assert arb(333)/218 * arb(".0217") < arb(".03318")
+    assert 5 * arb(".0217") < arb("2.583")
+    assert arb(115)/218 * arb(".0628") < arb(".03318")
+    assert 5 * arb(".0628") < arb("2.583")
     common=min(z.lower() for z in both).union(max(z.upper() for z in both))
     print("Common inverse across the face-certified rectangle",common.lower().str(8),common.upper().str(8))
     assert arb("52.0") < common < arb("56.1")
