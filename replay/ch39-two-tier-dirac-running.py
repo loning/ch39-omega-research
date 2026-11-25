@@ -41,7 +41,7 @@ def matter():
     return one,two
 
 
-def verify():
+def verify(observer=None):
     sm = run_path(str(ROOT/"ch39-two-loop-shell-separation.py"))
     ctx.prec = 192
     q = sm["q"]
@@ -64,20 +64,23 @@ def verify():
     def dot(a,b):
         return sum(x*y for x,y in zip(a,b))
 
-    def integrate(times,steps):
+    def integrate(times,steps,record=None):
         correction = [arb(0) for _ in range(3)]
         logs = [arb(x).log() for x in (".98",".016",".010")]
         baseline = initial[:]
+        start_time = arb(0)
         for time,coeff,matrix in zip(times,(b,b_high),(B,high)):
             dt = time/steps
             for k in range(steps):
                 interval = (arb(k)+arb(0).union(1))*dt
                 # 常数宽度包络只用于证明单步内解存在并给导数定界。
-                xpad, ypad = arb(".020"), arb(".009")
+                xpad, ypad = arb(".4")*dt.upper(), arb(".12")*dt.upper()
                 inverse = [a-s*interval/(2*pi)+v+arb(0,xpad) for a,s,v in zip(baseline,coeff,correction)]
                 assert all(v>8 for v in inverse)
                 gauge = [1/v for v in inverse]
                 y = [(2*(v+arb(0,ypad))).exp() for v in logs]
+                if record is not None:
+                    record(start_time+k*dt,dt,gauge,y)
                 trace = 3*(y[0]+y[1])+y[2]
                 dx = [-dot(row,gauge)/(8*pi**2)+dot(yr,y)/(32*pi**3) for row,yr in zip(matrix,D)]
                 dy = [(arb(3)/2*diff+trace-4*pi*dot(row,gauge))/(16*pi**2)
@@ -87,6 +90,7 @@ def verify():
                         assert abs(dt*speed) < pad
                         values[i] += dt*speed
             baseline = [a-s*time/(2*pi) for a,s in zip(baseline,coeff)]
+            start_time += time
         return correction,[v+h for v,h in zip(baseline,correction)]
 
     # 在时间矩形上反演精确的一圈仿射项，两圈积分进入连续映射右端。
@@ -101,7 +105,7 @@ def verify():
         rhs = arb_mat([[2*pi*(initial[i]-initial[2]+corr[i]-corr[2])] for i in (0,1)])
         mapped = slopes.solve(rhs)
     times = [times[i].intersection(mapped[i,0]) for i in range(2)]
-    _,ended = integrate(times,1024)
+    _,ended = integrate(times,1024 if observer is None else 4096,observer)
     common = ended[0].intersection(ended[1]).intersection(ended[2])
     m = arb("91.1876")*times[0].exp()
     mu = arb("91.1876")*sum(times).exp()
@@ -111,6 +115,7 @@ def verify():
     print("两段正演化时间",*[v.str(9) for v in times])
     print("轻档 GeV、交点 GeV、共同逆耦合的区间",
           *[(v.lower().str(10),v.upper().str(10)) for v in (m,mu,common)])
+    return m,mu,common
 
 
 if __name__ == "__main__":
