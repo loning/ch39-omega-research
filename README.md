@@ -909,7 +909,7 @@
 
 把同一截止降至 $D<292$ 至少需要 25 态，降至 $D<216$ 至少需要 26 态。首次可用 24 态的截止仅余四个候选值 292、296、372、392。[指定交叉块的有理排除](replay/ch39-three-clock-forced-entries.py)
 
-若要求补全保持壳的全部三坐标置换，首次可用 24 态的平方弦距截止恰为 **392**。因此在 292、296、372 寻找更早的 24 态构造，必须容许补全破坏坐标对称。[全参数多项式排除](replay/ch39-three-clock-symmetric-cutoff.py) · [392 处的对称实现](replay/ch39-three-clock-nine-cycle.py)
+若要求补全保持壳的三坐标循环置换，首次可用 24 态的平方弦距截止恰为 **392**。因此在 292、296、372 寻找更早的 24 态构造，必须容许补全破坏三循环。[全参数多项式排除](replay/ch39-three-clock-symmetric-cutoff.py) · [392 处的对称实现](replay/ch39-three-clock-nine-cycle.py)
 
 限制原十九点传播修正的平方弦距时，在截止 1152、1376、1568 处准确复现三时钟响应最少分别需要 21、20、19 个辅助态。截止 56 时已证范围是 29 至 33。[弦距与辅助态数](replay/ch39-local-memory-rank.py) · [秩九障碍](replay/ch39-local-memory-null-vectors.py) · [十四列 Gram 因子](replay/ch39-local-gram-certificate.py)
 

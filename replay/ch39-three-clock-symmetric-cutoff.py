@@ -1,4 +1,4 @@
-"""若 Gram 补全保持三坐标置换，截止低于 392 时排除五维。"""
+"""若 Gram 补全保持三坐标循环置换，截止低于 392 时排除五维。"""
 from itertools import permutations
 from pathlib import Path
 from runpy import run_path
@@ -86,7 +86,18 @@ def verify():
     constant_sign(slope)
     obstruction = k[0][0]*slope**2 - (k[0][1]+k[1][0])*slope*intercept + k[1][1]*intercept**2
     constant_sign(obstruction)
-    print("S3-invariant rank five excluded for every cutoff below 392.")
+    # 只保持循环置换时，六点分成两个三点轨道，各有同一实二次方程。
+    rotation = [points.index((p[1], p[2], p[0])) for p in points]
+    assert {4, rotation[4], rotation[rotation[4]]} == {4, 12, 13}
+    assert {15, rotation[15], rotation[rotation[15]]} == {5, 10, 15}
+    swap = [points.index((p[2], p[1], p[0])) for p in points]
+    assert swap[4] == 15
+    assert k[1][0] == k[0][1]
+    constant_sign(h[1][1])
+    # 不同根的和与积由韦达公式固定，因此 (4,15) 的内积仍给出矛盾。
+    mixed = k[0][0]*h[1][1] - k[0][1]*(h[0][1]+h[1][0]) + k[1][1]*h[0][0]
+    constant_sign(mixed)
+    print("C3-invariant rank five excluded for every cutoff below 392.")
 
 
 if __name__ == "__main__":
