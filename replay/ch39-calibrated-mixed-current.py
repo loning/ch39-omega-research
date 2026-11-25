@@ -59,9 +59,16 @@ def collect(logs, time, targets, mass_error):
     t /= form(calibration,hypercharge,calibration)
     assert t>0
     origin += hypercharge*t
+    return probe_records((e,z,b,d,masses[0],h0,k0,ref0),
+                         (ee,zz,bb,dd,triplet,t,origin,L), targets, (q(".5"),q(1)))
+
+
+def probe_records(reference, fitted, targets, log_ratios):
+    e,z,b,d,nominal_triplet,h0,k0,ref0 = reference
+    ee,zz,bb,dd,triplet,t,origin,L = fitted
     records = []
-    for log_x in (q(".5"),q(1)):
-        _,a0,x = shape["probe"](log_x,e,z,b,d,masses[0])
+    for log_x in log_ratios:
+        _,a0,x = shape["probe"](log_x,e,z,b,d,nominal_triplet)
         direct = dressed(projected_tree(e*x,z,b,d)+hypercharge*(h0/k0),inv_basis*a0*inv_basis.transpose(),k0)
         dest = direct[0,0]*origin[0,0]/ref0[0,0]
         _,a,_ = shape["probe"](log_x,ee,zz,bb,dd,triplet)
@@ -72,7 +79,7 @@ def collect(logs, time, targets, mass_error):
         coef = col.transpose()*(eye-a*tree*k0).inv()*a
         cross_target = form(mixed,direct,mixed)*form(mixed,origin,mixed)/form(mixed,ref0,mixed)
         records.append((tree,a,col,coef,dest-base[0,0],dest,cross_target))
-    x1,x2 = q(".5").exp(),q(1).exp()
+    x1,x2 = (log_x.exp() for log_x in log_ratios)
     threshold = 4*triplet**2/ee
     cap = ((x1-1)/(x2-1)*(threshold+x2)/(threshold+x1)).upper()
     ks = [1/(poles["offset"]+g/(15*L)) for g in targets]
@@ -114,30 +121,35 @@ def separate(interval, records, k0, cap, required):
     return form(mixed,second,mixed)+(slack/abs(beta))**2 > required
 
 
+def identify(records,k0,ks,cap):
+    required = (records[1][-1]*(1+q(".00002"))).upper()
+    stack = [(q(0),ks[0].upper())]
+    count = 0
+    while stack:
+        left,right = stack.pop()
+        try:
+            certified = separate(left.union(right),records,k0,cap,required)
+        except ZeroDivisionError:
+            certified = False
+        if certified:
+            count += 1
+        else:
+            if right-left < q("1e-9"):
+                raise ArithmeticError(f"unresolved coupling {left} to {right}")
+            middle = ((left+right)/2).mid()
+            stack.extend(((left,middle),(middle,right)))
+    tree,a,_,_,_,dest,_ = records[1]
+    high = dressed(tree,a,ks[1])[0,0]/dest-1
+    assert high > q("2e-8")
+    return count, high
+
+
 def verify():
     time = poles["study"]["nominal"][2]
     targets = [poles["study"]["comp"]["model"]["target"](n,time) for n in (11430,11432)]
     for case,logs in enumerate(poles["retune"]["log_sets"]):
         records,k0,ks,cap,t = collect(logs,time,targets,q("1e-10"))
-        required = (records[1][-1]*(1+q(".00002"))).upper()
-        stack = [(q(0),ks[0].upper())]
-        count = 0
-        while stack:
-            left,right = stack.pop()
-            try:
-                certified = separate(left.union(right),records,k0,cap,required)
-            except ZeroDivisionError:
-                certified = False
-            if certified:
-                count += 1
-            else:
-                if right-left < q("1e-9"):
-                    raise ArithmeticError(f"unresolved coupling {left} to {right}")
-                middle = ((left+right)/2).mid()
-                stack.extend(((left,middle),(middle,right)))
-        tree,a,_,_,_,dest,_ = records[1]
-        high = dressed(tree,a,ks[1])[0,0]/dest-1
-        assert high > q("2e-8")
+        count, high = identify(records,k0,ks,cap)
         print("case",case,"calibrated gY^2/k",t.str(9),"covered boxes",count,
               "higher-label excess (ppm)", (high*10**6).lower().str(9),flush=True)
 
