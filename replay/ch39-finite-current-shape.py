@@ -53,8 +53,7 @@ def verify():
         errors.append(abs(value/exact-1).upper())
     print("relative coefficient errors", *(e.str(9) for e in errors))
     assert max(errors) < q("1e-9")
-    width = sum((-3*alpha+x*family)**2+(3*alpha-beta-x*family)**2
-                for x in (1,1,-2))/(24*arb.pi())
+    width = widths["reference_width"]((alpha,beta,family))
     width *= 1+arb(0,q("1e-5").upper())
     target,L,rho,eta,c,z,_ = widths["recover"](estimates,width,geometry)
     time = study["nominal"][2]

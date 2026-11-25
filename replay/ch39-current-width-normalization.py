@@ -9,6 +9,17 @@ inverse = run_path(str(root/"ch39-current-scale-inverse.py"))
 four, study, q = inverse["four"], inverse["study"], inverse["q"]
 
 
+def reference_width(couplings):
+    alpha,beta,family = couplings
+    charges = study["retuned"]["current"]["weyl_charges"]
+    total = arb(0)
+    for field, hypercharge in (("L",q("-1/2")), ("ec",q(1))):
+        d,r,sign = charges[field]
+        assert q(d)/6+q(r)/2 == hypercharge or (q(d)/6+q(r)/2-hypercharge).contains(0)
+        total += sum((d*alpha+r*beta+sign*x*family)**2 for x in (1,1,-2))
+    return total/(24*arb.pi())
+
+
 def normalized_lepton_width(rho, eta, c, z):
     unit, colour, right = study["ports"][-3:]
     def a(e, derivative=False):
@@ -21,7 +32,7 @@ def normalized_lepton_width(rho, eta, c, z):
     assert derivative > 0
     ratio_d = colour(pole,unit)*(c-eta*pole)/(16*rho)
     ratio_r = -right(pole,unit)*(c-eta*pole)/(8*rho)
-    multiplicity = 12+27*ratio_d**2+3*(3*ratio_d-ratio_r)**2
+    multiplicity = 12+27*ratio_d**2+3*(3*ratio_d+ratio_r)**2
     return multiplicity/(24*arb.pi()*derivative)
 
 
@@ -39,8 +50,7 @@ def verify():
     shape = [v/coefficients[0] for v in coefficients[1:]]
     retuned = study["retuned"]
     _, _, (alpha,beta,family), _ = retuned["current"]["light_current"](retuned["logs"])
-    width = sum((-3*alpha+x*family)**2 + (3*alpha-beta-x*family)**2
-                for x in (1,1,-2))/(24*arb.pi())
+    width = reference_width((alpha,beta,family))
     time = study["nominal"][2]
     targets = [study["comp"]["model"]["target"](n,time) for n in (11430,11431,11432)]
     exact = recover(shape,width,geometry)

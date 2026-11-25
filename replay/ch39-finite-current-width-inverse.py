@@ -114,8 +114,7 @@ def verify():
     assert L.contains(1)
     retuned = study["retuned"]
     _, _, (alpha,beta,family), _ = retuned["current"]["light_current"](retuned["logs"])
-    width = sum((-3*alpha+x*family)**2+(3*alpha-beta-x*family)**2
-                for x in (1,1,-2))/(24*arb.pi())
+    width = widths["reference_width"]((alpha,beta,family))
     width *= 1+arb(0,q("1e-5").upper())
     c = 1/L
     f0 = widths["normalized_lepton_width"](rho,eta,c,z)/width

@@ -9,6 +9,10 @@ from flint import arb
 root = Path(__file__).parent
 neutral = run_path(str(root/"ch39-shared-quartic-neutral.py"))
 
+# Charges (D, 2T_R, family sign) for left-handed Weyl fields.
+weyl_charges = {"Q":(1,0,1), "uc":(-1,-1,-1), "dc":(-1,1,-1),
+                "L":(-3,0,1), "ec":(3,1,-1)}
+
 
 def light_current(logs):
     g,u,w,m3,h,active,unit,gc,gr = neutral["parameters"](logs,include_graphs=True)
@@ -42,15 +46,12 @@ def light_current(logs):
         (F(3,2),0,0,F(1,2),0),
         (1,F(1,2),F(1,2),0,0),
     ]
-    d_weights=(1,-1,-1,-3,3)
-    r_weights=(0,-1,1,0,1)
-    x_sign=(1,-1,-1,1,-1)
     shifts=[]
     factor = 2*(m3/start.sqrt()).log()/(16*arb.pi()**2)**2
     for row,higgs in zip(indices,(F(3,10),F(1,2),0)):
         total=arb(0)
         for x in (1,1,-2):
-            for t,dc,r,sign in zip(row,d_weights,r_weights,x_sign,strict=True):
+            for t,(dc,r,sign) in zip(row,weyl_charges.values(),strict=True):
                 total+=2*arb(t.numerator)/t.denominator*(dc*alpha+r*beta+sign*x*family)**2
         total+=4*arb(higgs.numerator)/higgs.denominator*beta**2
         shifts.append(total*factor)
