@@ -907,6 +907,8 @@
 
 在十九个可见点上精确重现三时钟响应，若旧传播块允许在平方弦距不超过 $D$ 时修正，最小辅助维数在 $392\le D<544$ 为 **24**，在 $544\le D<1152$ 为 **23**。中心到六个外点的固定内积恰好在 544 处解除。[书面证明](replay/Ω复算说明.md#六个外点与三时钟的两个精确辅助维数) · [外点证书](replay/ch39-three-clock-outer-pairs.py) · [九环证书](replay/ch39-three-clock-nine-cycle.py)
 
+把同一截止降至 $D<292$ 至少需要 25 态，降至 $D<216$ 至少需要 26 态。首次可用 24 态的截止仅余四个候选值 292、296、372、392。[指定交叉块的有理排除](replay/ch39-three-clock-forced-entries.py)
+
 限制原十九点传播修正的平方弦距时，在截止 1152、1376、1568 处准确复现三时钟响应最少分别需要 21、20、19 个辅助态。截止 56 时已证范围是 29 至 33。[弦距与辅助态数](replay/ch39-local-memory-rank.py) · [秩九障碍](replay/ch39-local-memory-null-vectors.py) · [十四列 Gram 因子](replay/ch39-local-gram-certificate.py)
 
 在 `replay/` 或复算包解压目录中运行各节给出的命令。部分整数证书只依赖 Python 标准库。使用 Arb 的证书需要 `python-flint`。例如，以下命令分别核验超荷相位构造与第九个时间节点的舒尔枢轴比较。
