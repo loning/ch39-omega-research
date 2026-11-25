@@ -32,11 +32,16 @@ def step_with_derivatives(terms, duration, coeff):
     return wave,derivatives
 
 
-def observations(inputs,coeff):
+def observations(inputs,coeff,time_slopes=None):
     wave = flavor["identity"]
     variations = [acb_mat(2,2) for _ in range(4)]
-    for terms,duration in inputs:
+    if time_slopes is not None:
+        variations.append(acb_mat(2,2))
+    for i,(terms,duration) in enumerate(inputs):
         step,ds = step_with_derivatives(terms,duration,coeff)
+        if time_slopes is not None:
+            action=sum((c*v for c,v in zip(coeff,terms)),acb_mat(2,2))
+            ds.append(acb(0,time_slopes[i])*action*step)
         variations = [step*v+d*wave for v,d in zip(variations,ds)]
         wave = step*wave
     basis = flavor["basis"]
