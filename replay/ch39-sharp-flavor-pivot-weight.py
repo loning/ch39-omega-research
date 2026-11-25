@@ -22,9 +22,11 @@ def positive_on_unit(p):
     assert all(sum(p[j]*comb(k,j)/comb(n,j) for j in range(k+1))>0 for k in range(n+1))
 
 
-def verify():
+def verify(source=None):
     ctx.prec = 224
-    rows = {i:tuple(map(arb,z)) for i,z in previous["points"]()}
+    points = previous["points"] if source is None else source
+    rows = {i:tuple(map(arb,z)) for i,z in points()}
+    assert set(rows) == set(range(10815,12093))
     S,T = [arb((previous[key]-previous["half"])**2) for key in ("s12","s23")]
     lo, hi = [arb((previous["s13"]+k*previous["half"])**2) for k in (-1,1)]
     tau = arb("1.141").tan()
@@ -75,7 +77,8 @@ def verify():
     root = left.union(right)
     answer = [p(root) for p in weights]
     assert all(w>0 for w in answer) and j(root)>0
-    assert arb(".4675306")<answer[0] and answer[0]<arb(".4675308")
+    if source is None:
+        assert arb(".4675306")<answer[0] and answer[0]<arb(".4675308")
     print("Unique minimizer on closed flavor boxes",*(w.str(15) for w in answer),
           "averaged |Vub|²",U(root).str(15))
 
