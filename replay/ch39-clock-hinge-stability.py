@@ -31,7 +31,7 @@ def simplex_hessians(t, b, n):
         for row, (i, j) in enumerate(EDGES):
             face = list(combinations([s for s in range(5) if s not in (i, j)], 2))
             six = j-i in (1, 4)
-            area = arb(2521 if six else 2911)/n
+            area = b*((4*t-1) if six else t*(4-t)).sqrt()/4
             if (u, v) in face:
                 area_derivatives[row,col] = (sum(squared[s][z] for s, z in face)/2
                                              - squared[u][v])/4
