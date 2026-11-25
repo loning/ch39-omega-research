@@ -57,6 +57,7 @@ def verify():
         t = acb.zeta_zero(n).imag
         return -1/(2*(t*t+arb(1)/4))
     xs = [xcoord(n) for n in (11430, 11431, 11432)]
+    assert xs[0] < xs[1] < xs[2]
     domain = arb(-1).union(arb(0))/200
     assert evaluate(denom, domain) > 0
     gaps = []
