@@ -28,12 +28,12 @@ def dual_basis(e, z):
     return arb_mat([[6*r/s, 18*c/s, 0], [3/s, -1/s, 2/(z+s)], [0, 0, 1]])
 
 
-def current_slope(graph, measurement, polar, polar0, nominal, e, z, length, targets):
+def contact_constraints(graph, measurement, polar, polar0, nominal, e, z, length, targets):
     # 已知极化的预解式差只含观测误差和极化误差。
     eye = scheme["cal"]["eye"]
     varied = graph+measurement
     delta = (eye+varied*polar).inv()*(measurement-varied*(polar-polar0)*graph)*(eye+polar0*graph).inv()
-    _, g, v, _, beta = contacts["axes"](e, z)
+    _, g, v, alpha, beta = contacts["axes"](e, z)
     inverse = dual_basis(e, z)
     g0, v0, kg0, p0 = nominal
     projected_g, projected_v = inverse*g0, inverse*v0
@@ -52,7 +52,10 @@ def current_slope(graph, measurement, polar, polar0, nominal, e, z, length, targ
     assert abs(first) > 0
     slope = g[1, 0]/g[0, 0]
     # v 的前两个坐标平行于 g，因此分子只含超荷投影。
-    return slope+t_y*(y[1, 0]-slope*y[0, 0])/first
+    direction = slope+t_y*(y[1, 0]-slope*y[0, 0])/first
+    schur_error = observed[0, 1]**2/margin
+    hyper_shift = observed[0, 0]+arb(0, abs(schur_error).upper())
+    return direction, alpha, hyper_shift
 
 
 def verify():
@@ -71,20 +74,31 @@ def verify():
         _, polarization, x = scheme["cal"]["shape"]["probe"](log_x,e,z,raw_b/rho,raw_d/rho,triplet)
         e0 = scheme["anchor"]/scale
         _, polar0, _ = scheme["cal"]["shape"]["probe"](log_x,e0,z0,raw_b/rho,raw_d/rho,masses[0])
-        directions = []
+        directions, alpha_values, hyper_values = [], [], []
         for point, multiplier, polar in ((0, q(1), arb_mat(3,3)), (1, x, polarization)):
             energy = multiplier*e0
-            h0, g0, v0, _, beta0 = contacts["axes"](energy, z0)
+            h0, g0, v0, alpha0, beta0 = contacts["axes"](energy, z0)
             nominal = (g0, v0, beta0/rho, energy/(raw_b+raw_d*energy+4*rho/h0))
             measurement = measurement_error(data[point], q("1e-11"))
-            directions.append(current_slope(data[point], measurement, polar, polar0 if point else polar,
-                                            nominal, multiplier*e, z, length, targets))
+            direction, alpha, shift = contact_constraints(
+                data[point], measurement, polar, polar0 if point else polar,
+                nominal, multiplier*e, z, length, targets)
+            directions.append(direction)
+            alpha_values.append(alpha)
+            hyper_values.append(shift+alpha0/rho)
         first, second = directions
         print("case", case, "slopes", first.lower().str(9), first.upper().str(9),
               second.lower().str(9), second.upper().str(9), flush=True)
         assert q("-2.1790") < first < q("-2.1720")
         assert q("-2.1980") < second < q("-2.1920")
         assert first-second > q(".0130")
+        delta_alpha = alpha_values[1]-alpha_values[0]
+        assert delta_alpha > 0
+        k = (hyper_values[1]-hyper_values[0])/delta_alpha
+        arithmetic = 15*length*(1/k-poles["offset"])
+        print("common hypercharge, target endpoints", arithmetic.lower().str(12),
+              arithmetic.upper().str(12), flush=True)
+        assert targets[1] < arithmetic < targets[0]
 
 
 if __name__ == "__main__":
