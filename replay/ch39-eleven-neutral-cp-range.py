@@ -14,8 +14,7 @@ def cp_loss(rows, weights, reference):
     return sum(v*(1-row[4]/reference) for v, row in zip(flavor, rows, strict=True))/sum(flavor)
 
 
-def five_time_range(rows, times, invariants, phase, reference):
-    losses = []
+def feasible_vertices(rows, times):
     for support in combinations(range(len(rows)), 8):
         # 该尺度的五项时间和驻点强迫第 8359 枚带严格正权。
         if support[0] != 0:
@@ -25,6 +24,12 @@ def five_time_range(rows, times, invariants, phase, reference):
         if any(v < 0 for v in weights):
             continue
         assert all(v > 0 for v in weights)
+        yield support, subset, weights
+
+
+def five_time_range(rows, times, invariants, phase, reference):
+    losses = []
+    for _, subset, weights in feasible_vertices(rows, times):
         flavor = [w*r[2] for w, r in zip(weights, subset, strict=True)]
         joint["replay"]["neutral"]["verify_maximum"](
             [r[1] for r in subset], [v/sum(flavor) for v in flavor], invariants, phase)
