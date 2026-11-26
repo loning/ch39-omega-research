@@ -63,8 +63,9 @@ def verify(count=8192):
     assert minimum_first > arb(".99999363") and outside > arb(".32092") and scale > arb("15.88")
     print(count,len(hits),"首个候选的序号、高度、全谱权份额的下上界",
           hits[0],hmin.str(12),mass_low.str(11),mass_hi.str(11))
-    print("未缩放首项下界、RH 首项、所需外部份额下界、所需公共高度缩放因子下界",
+    print("未缩放首项下界、RH 首项、所需外部份额下界、逆高度所需共同因子下界",
           minimum_first.str(13),first_time.str(13),outside.str(10),scale.str(10))
+    return [zeros[n-1].imag for n in hits]
 
 
 if __name__ == "__main__":
