@@ -1,5 +1,5 @@
 """算术时间前缀对三模支撑概率与共同逆高度尺度的全谱限制。"""
-from math import comb
+from math import comb, prod
 from pathlib import Path
 from runpy import run_path
 
@@ -33,17 +33,27 @@ def weight_cap(times, cap, degree, targets):
 
 def required_windows(times):
     moments = clock["cleared_moments"](times,41)
-    gram = arb_mat([[moments[i+j] for j in range(20)] for i in range(20)])
+    rates = [j*j for j in range(1,42)]
+    denominators = [prod(1-arb(other)/rate for other in rates if other != rate)
+                    for rate in rates]
     result = []
     for n, tol in ((1,"2e-16"), (2,"3.2e-12")):
         height = acb.zeta_zero(n).imag
         x = 200/height**2
         centered = arb_mat([[moments[i+j+2]-2*x*moments[i+j+1]+x*x*moments[i+j]
                              for j in range(20)] for i in range(20)])
-        coefficients = centered.solve(arb_mat([[x**i] for i in range(20)]))
-        norm = (coefficients.transpose()*gram*coefficients)[0,0]
-        loss = (coefficients.transpose()*centered*coefficients)[0,0]
-        assert 0 < loss < norm*(x*arb(tol))**2
+        basis = arb_mat([[x**i] for i in range(20)])
+        coefficients = centered.solve(basis)
+        coefficients = coefficients/(basis.transpose()*coefficients)[0,0]
+        polynomial = arb_poly([coefficients[i,0].mid() for i in range(20)])
+        numerator = polynomial**2*(arb_poly([(x*arb(tol))**2])-arb_poly([-x,1])**2)
+        # 分子至多四十次。用四十一个不同的极点展开后，各系数直接乘原始读数。
+        residues = [numerator(-arb(200)/rate)/denominator
+                    for rate,denominator in zip(rates,denominators,strict=True)]
+        signal = sum(c*t for c,t in zip(residues,times[1:],strict=True))
+        margin = signal/sum(abs(c) for c in residues)
+        assert margin > arb(2)**-176
+        print("窗口",n,"允许的逐项绝对误差裕量",margin.str(12))
         result.append((height,arb(1) + arb(0,tol)))
     return result
 
