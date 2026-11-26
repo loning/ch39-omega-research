@@ -33,8 +33,7 @@ def tail_certificate(times):
     return mean, sensitivity
 
 
-def verify():
-    ctx.prec, ctx.cap = 768, 3
+def flavor_data():
     invariant = determinant["invariant"]
     e1, e2, e3, _ = invariant["invariants"]()
     reference = invariant["flavor"]["singlet"](11661)[1]
@@ -43,6 +42,14 @@ def verify():
     lambdas = [arb(y)**2 for y in (".0000135", ".000268", ".01401")]
     slopes = [(d1*z*z - d2*z + d3)/(3*z*z - 2*mass_sum*z + mass_pairs) for z in lambdas]
     assert slopes[0] > 0 and slopes[1] > 0 and slopes[2] < 0
+    return (e1, e2, e3), reference, lambdas, slopes
+
+
+def verify():
+    ctx.prec, ctx.cap = 768, 3
+    (e1, e2, e3), reference, lambdas, slopes = flavor_data()
+    d1, d2, d3 = [p.derivative()(reference) for p in (e1, e2, e3)]
+    mass_sum, mass_pairs, mass_product = [p(reference) for p in (e1, e2, e3)]
     times = clock["clock"]["times"]()
     b = -d1
     linear, quadratic = d2 + d3 + b*mass_pairs, d3 + b*mass_product
