@@ -14,7 +14,7 @@ def column(values):
     return arb_mat([[v] for v in values])
 
 
-def finite_projection(rows, times, probabilities, reference):
+def projection_weights(rows, times):
     basis = arb_mat(list(zip(*(r[0] for r in rows[:8]), strict=True)))
     extra = arb_mat(list(zip(*(r[0] for r in rows[8:]), strict=True)))
     start = column(basis.solve(column([*times[:6], 0, 0])).entries()+[arb(0)]*3)
@@ -42,7 +42,12 @@ def finite_projection(rows, times, probabilities, reference):
     norm = max(sum(abs(remainder[i,j]) for j in range(3)) for i in range(3))
     step = max(abs(v) for v in (inverse*gradient).entries())
     assert step+norm*radius < radius
-    p = (start+tangent*box).entries()
+    return (start+tangent*box).entries()
+
+
+def finite_projection(rows, times, probabilities, reference):
+    p = projection_weights(rows, times)
+    xs = [r[1] for r in rows]
     loss = ranges["cp_loss"](rows, p, reference)
     flavor = [v*r[2] for v, r in zip(p, rows, strict=True)]
     charm = sum(v*(r[3][7]-probabilities[7]) for v, r in zip(flavor, rows, strict=True))/sum(flavor)
