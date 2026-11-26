@@ -26,6 +26,44 @@ def gauge_trace():
     assert (trace_s-4*v**2-2*x**2*(w**2+(w+b)**2))/2 == 2*v*x*(2*w+b)
 
 
+def finite_thresholds(model, layers, unit, mu, g2, gy, double_log):
+    # Farina, Pappadopulo, Strumia，arXiv:1303.7244v3 式 (3)、(21)、(22)。
+    # 系数改记为 V 中的 +m_H² H†H，即论文 δm² 的 −1/2。
+    loop2 = (16*arb.pi()**2)**2
+    scalar = fermion = scalar_ll = arb(0)
+    counts = []
+    floor = arb(0)
+    for q in model["charges"]:
+        weak = 2 if q in (1,3) else 1
+        color = 3 if q in (1,2,4) else 1
+        group = arb(weak*weak-1)*g2**2/4+(arb(q)/6)**2*gy**2
+        factor = color*weak*group/(2*loop2)
+        active = 0
+        for h in layers[q][3:]:
+            mass = unit*h*(32 if q%2==0 else 1)
+            if mass > mu:
+                continue
+            assert mass < mu
+            active += 1
+            t = (mu/mass).log()
+            term = mass**2*factor
+            # c=2，每个有质量的费米子是一对 Dirac 左右分量。
+            fermion += 2*term*(1+12*t)
+            floor += 2*term
+            if q==3:
+                scalar += term*(6*t**2-4*t+arb(7)/2)
+                scalar_ll += 6*term*t**2
+                floor += arb(17)/6*term
+        counts.append((q,active))
+    assert all(32*unit*h>mu for h in layers[0])
+    assert scalar_ll.overlaps(double_log)
+    total = scalar+fermion
+    assert scalar>0 and fermion>0 and total>floor
+    ref = arb("125.25")**2/2
+    print("分荷激活 Dirac",counts,"有限标量、有限费米、总额/GeV²、同尺度下界、相对电弱参数",
+          *[(v.lower().str(9),v.upper().str(9)) for v in (scalar,fermion,total,floor,total/ref)])
+    return total
+
 def verify():
     gauge_trace()
     model,_,_,initial,_ = chiral["source"]["mean"]["inputs"]()
@@ -51,6 +89,8 @@ def verify():
         print(n,"共同逆耦合、门户源、二次项曲率、逐层双对数贡献/GeV²、与电弱参数之比",
               *[(v.lower().str(9),v.upper().str(9)) for v in (common,source,curv,generated,ratio)])
         assert source>arb(".48") and ratio>arb("1e19")
+        total = finite_thresholds(model,layers,unit,mu,g2,gy,generated)
+        assert total>arb("1e25")
 
 
 if __name__=="__main__":
