@@ -28,13 +28,14 @@ def spectral_supplier(model):
                 mat[j,i]=value.conjugate()
         powers[q]=(mat,clock)
     unit = model["shell"]["shell_spectra"]((0,),zero_index=11431)[0]
-    def read(height):
+    def read(height, *, clocks=None):
         assert height>10000
         # 原有中性 11431 谱的微小包围和任一窗内谱的差小于 1e-12。
         neutral=[v+arb(0,"1e-12") for v in unit]
         center=sum(neutral)/18
         rows=[(v*abs(v-center),0) for v in neutral]
-        clocks=geometry["phases"](height)
+        if clocks is None:
+            clocks=geometry["phases"](height)
         for q,(base,clock) in powers.items():
             mat=acb_mat(base)
             phase={d:z**q for d,z in clocks.items()}
