@@ -86,7 +86,7 @@ def verify(*, keep_flavor=False):
     print("统一能标、强耦合与四层轻质量 meV", mu_gut.str(8), alpha.str(8), (mu * 10**12).str(9))
 
 
-def actual_examples(numbers=(22027, 28325), *, tolerance=".0006", min_gap="3e-11"):
+def actual_examples(numbers=(22027, 28325), *, tolerance=".0006", min_gap="3e-11", direct=False):
     model, _, _, initial, _ = chiral["source"]["mean"]["inputs"]()
     ctx.prec = 224
     read = chiral["source"]["spectral_supplier"](model)
@@ -94,7 +94,12 @@ def actual_examples(numbers=(22027, 28325), *, tolerance=".0006", min_gap="3e-11
     coefficient = (9 * arb(3).log() - 12 * arb(2).log()) / 2
     planck = arb("1.22089e19")
     for number in numbers:
-        source = read(acb.zeta_zero(number).imag)
+        if direct:
+            levels = model["shell"]["shell_spectra"]((0,*model["charges"]), zero_index=number)
+            center = sum(levels[0])/18
+            source = [(v*abs(v-center),q) for q,values in levels.items() for v in values]
+        else:
+            source = read(acb.zeta_zero(number).imag)
         bands = {q: chiral["ordered"]([h for h, charge in source if charge == q])
                  for q in (0, *model["charges"])}
         assert all(bands[q][2] < 9 < bands[q][3] for q in model["charges"])
