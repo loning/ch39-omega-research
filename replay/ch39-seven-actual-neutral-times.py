@@ -12,18 +12,12 @@ indices = (8359, 143921293989490, 3608485756267, 1742020063894,
 scale = 32_000_000_000
 
 
-def verify_at(scale, indices):
+def shell_nodes(scale, indices, *, height_bits=112):
     params, initial = physical["model_inputs"]()
     chiral = physical["joint"]["chiral"]
     supply_spectrum = chiral["source"]["spectral_supplier"](params)
-    ctx.prec, ctx.cap = 512, 3
-    model = neutral["model"]
-    times = model["shared"]["clock"]["clock"]["times"]()
-    invariants, reference, poles, slopes = model["shared"]["flavor_data"]()
-    nodes, efficiencies, columns = [], [], []
-
     for index in indices:
-        ctx.prec = 112
+        ctx.prec = height_bits
         height = acb.zeta_zero(index).imag
         ctx.prec = 224
         if index == 8359:
@@ -42,12 +36,22 @@ def verify_at(scale, indices):
             shifted[i, i] += x
         response = (x*shifted.inv().trace()).real
         assert 1 < response < 19
+        print(index, "强耦合、四层曲率比、中性响应",
+              alpha.str(10), curvature.str(12), response.str(12), flush=True)
+        yield height, x, response
+
+
+def verify_at(scale, indices):
+    ctx.prec, ctx.cap = 512, 3
+    model = neutral["model"]
+    times = model["shared"]["clock"]["clock"]["times"]()
+    invariants, reference, poles, slopes = model["shared"]["flavor_data"]()
+    nodes, efficiencies, columns = [], [], []
+    for _, x, response in shell_nodes(scale, indices):
         time_column = [model["time_kernel"](x, j) for j in range(1, 6)]
         columns.append([1, *time_column, response*model["gradient"](x, poles, slopes)])
         nodes.append(x)
         efficiencies.append(response)
-        print(index, "强耦合、四层曲率比、中性响应",
-              alpha.str(10), curvature.str(12), response.str(12), flush=True)
 
     matrix = arb_mat(list(zip(*columns, strict=True)))
     target = arb_mat([[v] for v in [*times[:6], 0]])
