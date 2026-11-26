@@ -10,10 +10,11 @@ minimal = run_path(str(Path(__file__).with_name("ch39-chiral-minimal-neutral-gra
 heat = minimal["expint"]
 
 
-def paired_spectrum(rows):
+def paired_spectrum(rows, *, min_gap="3e-11"):
+    assert arb(min_gap) > 0
     positive = [z for g, _, z in rows if g > 0]
     negative = [z for g, _, z in rows if g < 0]
-    assert min(abs(z - w).lower() for z in positive for w in negative) > arb("3e-11")
+    assert min(abs(z - w).lower() for z in positive for w in negative) > arb(min_gap)
     assert all(g % 4 == 0 for g, _, _ in rows if g > 0)
     assert sum(-g for g, _, _ in rows if g < 0) == 958
     assert sum(g // 4 for g, _, _ in rows if g > 0) == 162

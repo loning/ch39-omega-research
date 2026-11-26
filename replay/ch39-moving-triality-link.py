@@ -71,8 +71,8 @@ def verify():
         print(q,"三个主角的正弦平方",*(v.str(8) for v in defects))
 
 
-def triangle_phases():
-    nodes = (11661,11934,12207,22027,28325)
+def triangle_phases(nodes=(11661,11934,12207,22027,28325), *, pairs=21, winner=(11934,12207,28325)):
+    print("允许的零点基点", nodes)
     frames = {}
     for n in nodes:
         h = acb.zeta_zero(n).imag
@@ -83,7 +83,8 @@ def triangle_phases():
     best = {q:arb(0) for q in (1,-4,2)}
     winners = {}
     best_phases = {}
-    for triangle in combinations(nodes,3):
+    triangles = list(combinations(nodes,3))
+    for triangle in triangles:
         for q in best:
             a,b,c = [frames[n][q] for n in triangle]
             path = adjoint(a)*c*adjoint(c)*b*adjoint(b)*a
@@ -99,7 +100,7 @@ def triangle_phases():
     coefficient = sum(a*b*c for a,b,c in combinations(mods,3))
     for q in best:
         cost = arb(".000030")/(best[q]*coefficient)
-        print(q,"十种三角形的最大去公共相位距离、取得该界的编号、必要圈数下界",
+        print(q, len(triangles), "种三角形的最大去公共相位距离、取得该界的编号、必要圈数下界",
               best[q].str(10),winners[q],cost.str(9))
 
     s12,s23,s13 = [arb(x).sin() for x in (".22704",".04275",".00377")]
@@ -109,9 +110,11 @@ def triangle_phases():
     jarlskog = s12*s23*s13*c12*c23*c13**2*delta.sin()
     cs_mod = abs(c12*c23-s12*s23*s13*phase)
     coefficient = sum(a*b*c for a,b,c in combinations((s12*c13,s23*c13,s13,cs_mod),3))
-    assert jarlskog > 37*max(best.values())*coefficient
+    if pairs == 21:
+        assert jarlskog > 37*max(best.values())*coefficient
     # 同一行、同一列各自只有一份虚部平方范数预算。
-    eta = 41*max(best.values())
+    budget = 2*pairs-1
+    eta = budget*max(best.values())
     quartet_angle = (phase*(c12*c23-s12*s23*s13*phase).conjugate()).arg()
     assert arb("1.13") < quartet_angle < arb.pi()/2
     caps = []
@@ -122,23 +125,24 @@ def triangle_phases():
                     +(rest/(s23*c13)).asin()+(eta/cs_mod).asin())
     limit = max(v.upper() for v in caps)
     assert limit < arb("1.13")
-    print("41 圈的重定相不变量相角上界和参考相角",limit.str(10),quartet_angle.str(10))
+    print(budget, "圈的重定相不变量相角上界和参考相角",limit.str(10),quartet_angle.str(10))
     angles = sorted(best_phases[-4],key=float)
     width = angles[-1]-angles[0]
-    assert winners[-4] == (11934,12207,28325)
+    assert winners[-4] == winner
     # 选相位相距最远的两条线，第三条在正反回路中抵消。
     dmat = acb_mat([[acb(0,angles[-1]).exp(),0],[0,acb(0,angles[0]).exp()]])
     target = acb_mat([[c13,s13*phase.conjugate()],[-s13*phase,c13]])
     a,d,b = cartan_angles(target)
-    assert 20*width < d < 21*width
-    beta = ((d/21).sin()/abs(width.sin())).asin()
+    assert (pairs-1)*width < d < pairs*width
+    print("构造三角的相位宽度", width.str(12))
+    beta = ((d/pairs).sin()/abs(width.sin())).asin()
     block = dmat*rotation(beta)*adjoint(dmat)
     left,step,right = cartan_angles(block)
-    assert (step-d/21).contains(0)
+    assert (step-d/pairs).contains(0)
     turn = rotation(-left)*block*rotation(-right)
-    reconstructed = rotation(a)*turn**21*rotation(b)
+    reconstructed = rotation(a)*turn**pairs*rotation(b)
     assert all(abs(x)<arb("1e-35") for x in (target-reconstructed).entries())
-    print("参考 CKM 的最小圈数为 42，正反各 21 次。单次中间实转角",beta.str(10))
+    print("参考 CKM 的最小圈数", 2*pairs, "正反各", pairs, "次。单次中间实转角", beta.str(10))
 
 
 def rotation(theta):
@@ -157,3 +161,5 @@ def cartan_angles(matrix):
 if __name__ == "__main__":
     verify()
     triangle_phases()
+    mirror = (28325,48067,58214)
+    triangle_phases(mirror, pairs=14, winner=mirror)

@@ -86,14 +86,14 @@ def verify(*, keep_flavor=False):
     print("统一能标、强耦合与四层轻质量 meV", mu_gut.str(8), alpha.str(8), (mu * 10**12).str(9))
 
 
-def actual_examples():
+def actual_examples(numbers=(22027, 28325), *, tolerance=".0006", min_gap="3e-11"):
     model, _, _, initial, _ = chiral["source"]["mean"]["inputs"]()
     ctx.prec = 224
     read = chiral["source"]["spectral_supplier"](model)
     evaluate = flavor["reference_readout"]()
     coefficient = (9 * arb(3).log() - 12 * arb(2).log()) / 2
     planck = arb("1.22089e19")
-    for number in (22027, 28325):
+    for number in numbers:
         source = read(acb.zeta_zero(number).imag)
         bands = {q: chiral["ordered"]([h for h, charge in source if charge == q])
                  for q in (0, *model["charges"])}
@@ -102,15 +102,16 @@ def actual_examples():
         assert arb(".117") < alpha < arb(".119")
         heavy = 32 * arb("2.435e18") / 724**2 * bands[2][15]
         a = (arb("246.22")**2 / (heavy * planck))**2
-        balanced = vacuum["paired_spectrum"](vacuum["minimal"]["fields"](bands))
+        balanced = vacuum["paired_spectrum"](vacuum["minimal"]["fields"](bands), min_gap=min_gap)
         x = vacuum["calibrated_cutoff"](balanced + vacuum["low_sector"](4, a))
         ratio = a**2 * coefficient / (arb.pi() * arb("1e-122")) * (1 - arb(0).union(a / (x * coefficient)))
-        assert abs(ratio - 1) < arb(".0006")
+        assert abs(ratio - 1) < arb(tolerance)
         vals = evaluate(flavor["singlet"](number)[0])
-        print("实际编号、曲率比和味读数", number, ratio.str(11), *(v.str(9) for v in vals))
+        print("实际编号、强耦合、曲率比和味读数", number, alpha.str(10), ratio.str(11), *(v.str(9) for v in vals))
 
 
 if __name__ == "__main__":
     verify()
     verify(keep_flavor=True)
     actual_examples()
+    actual_examples((48067, 58214), tolerance=".002", min_gap="8e-12")
