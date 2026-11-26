@@ -19,8 +19,7 @@ def time_data():
     return total,xi[1]/(2*xi[0]*total)
 
 
-def verify(count=8192):
-    ctx.prec,ctx.cap = 112,3
+def three_mode_test():
     levels = [(15-arb(189).sqrt())/2, (15+arb(189).sqrt())/2, (15+arb(261).sqrt())/2]
     eps = arb("3e-8")
     assert shell["soft"]["point"]["study"]["offset"] >= 0
@@ -29,6 +28,22 @@ def verify(count=8192):
     assert len(shell["geo"]["edges"]) == 135
     count_at = {q: [[window["supplier"](q,t+sign*eps) for t in levels] for sign in (-1,1)]
                 for q in (6,3,4,2,1)}
+    def accepted(height):
+        assert height>14
+        phase=window["geometry"]["phases"](height)
+        for low,high in count_at.values():
+            below=[f(phase) for f in low]
+            above=[f(phase) for f in high]
+            assert below==above
+            if 1+below[0]+below[2]-below[1]!=3:
+                return False
+        return True
+    return accepted
+
+
+def verify(count=8192):
+    ctx.prec,ctx.cap = 112,3
+    three_modes=three_mode_test()
     total, first_time = time_data()
     zeros = acb.zeta_zeros(1,count)
     assert len(zeros)==count and zeros[0].imag > 14
@@ -38,14 +53,7 @@ def verify(count=8192):
         h = zero.imag
         score = 1/h**2
         seen += score
-        phase = window["geometry"]["phases"](h)
-        for low,high in count_at.values():
-            below = [f(phase) for f in low]
-            above = [f(phase) for f in high]
-            assert below == above
-            if 1 + below[0] + below[2] - below[1] != 3:
-                break
-        else:
+        if three_modes(h):
             hits.append(n)
             accepted += score
     assert hits[0] == 200

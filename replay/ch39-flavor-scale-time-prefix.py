@@ -10,16 +10,10 @@ determinant=run_path(str(root/"ch39-rh-flavor-determinant.py"))
 clock=run_path(str(root/"ch39-three-mode-time-localization.py"))
 
 
-def positive_witness(times,scale):
-    degree=18
+def certify_weights(times,scale,degree,heights):
+    assert len(heights)==degree+1
     moments=clock["clock"]["cleared_moments"](times,degree)
-    first_indices=(2556808,3935900,4752291,5932061,6885101,8724973,12448034,21829052,78456164)
     center=scale.mid()
-    heights=[acb.zeta_zero(1).imag]
-    ctx.prec=384
-    for index in first_indices:
-        heights.extend(z.imag for z in acb.zeta_zeros(index,2))
-    ctx.prec=1536
     nodes=[200*(center/h)**2 for h in heights]
     ratio=(center/scale)**2
     probabilities=[]
@@ -42,30 +36,25 @@ def positive_witness(times,scale):
     for j in range(1,degree+1):
         value=sum(p/(1+j*j*x/(200*ratio)) for x,p in zip(nodes,probabilities,strict=True))
         assert value.overlaps(times[j])
-    print("十九枚的最小原概率下界",min(v.lower() for v in probabilities).str(12))
+    return probabilities
 
 
-def exclude_nineteen(times,scale):
-    target=scale*acb.zeta_zero(1).imag
-    ctx.prec=192
-    lower_height,upper_height=[z.imag for z in acb.zeta_zeros(2556808,2)]
-    assert lower_height<target<upper_height
-    ctx.prec=1536
+def separation_margin(times,scale,degree,extra_power,lower_height,upper_height):
     left=(200*(scale/upper_height)**2).upper()
     right=(200*(scale/lower_height)**2).lower()
     assert left<right
-    nonnegative=arb_poly([0,1])*arb_poly([-left,1])*arb_poly([-right,1])
-    moments=clock["clock"]["cleared_moments"](times,19)
-    tilted=[sum(nonnegative[j]*moments[i+j] for j in range(4)) for i in range(17)]
-    gram=arb_mat([[tilted[i+j] for i in range(8)] for j in range(8)])
-    coefficients=gram.solve(arb_mat([[-tilted[i+8]] for i in range(8)]))
-    polynomial=arb_poly([coefficients[i,0].mid() for i in range(8)]+[1])
+    nonnegative=arb_poly([0,1])**extra_power*arb_poly([-left,1])*arb_poly([-right,1])
+    moments=clock["clock"]["cleared_moments"](times,degree)
+    order=(degree-nonnegative.degree())//2
+    tilted=[sum(nonnegative[j]*moments[i+j] for j in range(nonnegative.degree()+1))
+            for i in range(2*order+1)]
+    gram=arb_mat([[tilted[i+j] for i in range(order)] for j in range(order)])
+    coefficients=gram.solve(arb_mat([[-tilted[i+order]] for i in range(order)]))
+    polynomial=arb_poly([coefficients[i,0].mid() for i in range(order)]+[1])
     numerator=-nonnegative*polynomial**2
-    nominal=sum(numerator[i]*moments[i] for i in range(20))
-    residues=clock["residues_of"](numerator,clock["partial_fractions"](19))
-    margin=nominal/sum(abs(c) for c in residues)
-    assert margin>arb("6.62e-30")
-    print("第十九项前缀的逐项最大误差下界",margin.str(13))
+    nominal=sum(numerator[i]*moments[i] for i in range(numerator.degree()+1))
+    residues=clock["residues_of"](numerator,clock["partial_fractions"](degree))
+    return nominal/sum(abs(c) for c in residues)
 
 
 def verify():
@@ -73,8 +62,19 @@ def verify():
     times=clock["clock"]["times"]()
     low,high=determinant["scale_interval"]()
     scale=low.union(high)
-    positive_witness(times,scale)
-    exclude_nineteen(times,scale)
+    first_indices=(2556808,3935900,4752291,5932061,6885101,8724973,12448034,21829052,78456164)
+    ctx.prec=384
+    heights=[acb.zeta_zero(1).imag]
+    for index in first_indices:
+        heights.extend(z.imag for z in acb.zeta_zeros(index,2))
+    lower_height,upper_height=heights[1:3]
+    assert lower_height<scale*heights[0]<upper_height
+    ctx.prec=1536
+    probabilities=certify_weights(times,scale,18,heights)
+    margin=separation_margin(times,scale,19,1,lower_height,upper_height)
+    assert margin>arb("6.62e-30")
+    print("十九枚的最小原概率下界",min(v.lower() for v in probabilities).str(12))
+    print("第十九项前缀的逐项最大误差下界",margin.str(13))
 
 
 if __name__=="__main__":
