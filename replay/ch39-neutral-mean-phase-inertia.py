@@ -33,7 +33,7 @@ def scalar_range(constant,a,b,c):
     raise ValueError("此分隔点的全环面符号未获证书")
 
 
-def count_below(charge,level):
+def schur_coefficients(charge,level):
     mat=cut["cut_matrix"](charge)
     for i in range(19):
         mat[i,i]-=level
@@ -46,6 +46,7 @@ def count_below(charge,level):
             W[1 if d==724 else 2][core.index(i),inner.index(j)]=-u**charge
     count=cut["count_above"](fixed,arb(0))
     omega=acb(-arb(1)/2,arb(3).sqrt()/2)
+    terms=[]
     for k in range(3):
         v=acb_mat([[1],[omega**k],[omega**(2*k)]])
         vectors=[w*v for w in W]
@@ -53,8 +54,13 @@ def count_below(charge,level):
             return (vectors[i].conjugate().transpose()*inverse*vectors[j])[0,0]/3
         const=(v.conjugate().transpose()*base*v)[0,0]/3-sum(gram(i,i) for i in range(3))
         assert const.imag.contains(0)
-        count+=scalar_range(const.real,-gram(0,1),-gram(0,2),-gram(1,2))
-    return 19-count
+        terms.append((const.real,-gram(0,1),-gram(0,2),-gram(1,2)))
+    return count,terms
+
+
+def count_below(charge,level):
+    count,terms=schur_coefficients(charge,level)
+    return 19-count-sum(scalar_range(*coeffs) for coeffs in terms)
 
 
 def verify():
