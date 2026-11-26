@@ -30,7 +30,7 @@ def identify_pair(heights, windows, cutoff):
             assert target < heights[j]
     assert pairs == [(1,2)]
     assert abs(window1.sqrt()-1) < arb("1.01e-16")
-    print("尺度上限",cutoff,"允许的窗口编号对",pairs)
+    print("尺度上限",cutoff.str(8),"允许的窗口编号对",pairs)
     return window1
 
 
@@ -47,6 +47,7 @@ def small_scale_weights(times, scale_squared, error):
         return nominal+arb(0,error*sum(abs(c) for c in residues))
 
     nodes = [200/z.imag**2 for z in acb.zeta_zeros(1,13)]
+    intervals = []
     for i,x in enumerate(nodes[:12]):
         p = local["window_polynomial"](moments,x)
         gaps = [(x-scale_squared*nodes[i+1]).lower()]
@@ -66,12 +67,14 @@ def small_scale_weights(times, scale_squared, error):
             assert lower > arb(".21663040965174") and upper < arb(".21663040965176")
         if i==1:
             assert lower > arb(".09793647200697") and upper < arb(".09793647200699")
+        intervals.append(lower.union(upper))
         print("零点编号与权重两端",i+1,lower.str(18),upper.str(18))
 
     cap = (200*scale_squared/acb.zeta_zero(200).imag**2).upper()
     upper = local["weight_cap"](times,cap,41,[0,cap],error)
     assert upper < arb(".121744")
     print("五荷三模总权重上界",upper.str(13))
+    return intervals
 
 
 def large_scale_weights(times, heights, cutoff, error):
