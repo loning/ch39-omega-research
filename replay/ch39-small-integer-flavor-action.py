@@ -5,7 +5,7 @@ from runpy import run_path
 from flint import acb, arb, arb_mat, ctx
 
 
-def verify():
+def verify(counts, high_precision=False):
     root = Path(__file__).resolve().parent
     winding = run_path(str(root / "ch39-mincut-global-winding.py"))
     common = run_path(str(root / "ch39-reference-flavor-global-winding.py"))
@@ -17,7 +17,6 @@ def verify():
     cap = arb(23)/25*arb(2)**-20/14**2
     assert acb.zeta_zero(1).imag > 14 and shell["soft"]["point"]["study"]["offset"] > 0
     delta = arb(0).union(cap)
-    counts = {1: 1, 2: 1, 30: 2, 32: 1, 33: 15, 36: 6}
     weights = {q: arb(n)/sum(counts.values()) for q, n in counts.items()}
     modes = [(q, [w*z for z in winding["coeff"](tri, q, delta)]) for q, w in weights.items()]
     x, y = arb("-.01"), arb(".139")
@@ -46,7 +45,11 @@ def verify():
     polynomials = cp["cp_data"](data, flavor["reference_matrix"]())
     u_ratio = cp["two"]["probabilities"](coordinate, data)[0][0] / cp["two"]["probabilities"](reference, data)[0][0]
     j_ratio = cp["cp_value"](coordinate, polynomials) / cp["cp_value"](reference, polynomials)
-    assert arb("1.0041") < u_ratio < arb("1.0043") and arb("1.002") < j_ratio < arb("1.003")
+    if high_precision:
+        print("高精度整数权的归一读数偏移", (u_ratio-1).str(15), (j_ratio-1).str(15))
+        assert abs(u_ratio-1) < arb("4.7e-7") and abs(j_ratio-1) < arb("2.9e-7")
+    else:
+        assert arb("1.0041") < u_ratio < arb("1.0043") and arb("1.002") < j_ratio < arb("1.003")
     print("实际相位 U、J 与参考的比值", u_ratio.str(14), j_ratio.str(14))
     for sign in (-1, 1):
         common["physical_all_heights"](root, sign*xx, sign*yy, cap)
@@ -54,4 +57,5 @@ def verify():
 
 
 if __name__ == "__main__":
-    verify()
+    verify({1: 1, 2: 1, 30: 2, 32: 1, 33: 15, 36: 6})
+    verify({1: 258, 2: 161, 30: 566, 32: 377, 33: 4044, 36: 1493}, high_precision=True)
