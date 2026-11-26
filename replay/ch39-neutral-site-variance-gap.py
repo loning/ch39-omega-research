@@ -142,8 +142,16 @@ def independent_edge_errors():
         assert 10*(1+epsilon)**2 < Fraction("10.19") - mass_change
 
 
+def cuts_with_multiple_sites():
+    # 取较小一侧，每个顶点在侧内至多有 size-1 个邻点。
+    assert min(size*(11-size) for size in range(2, 10)) == 18
+    delta_cap = Fraction(23, 25*2**20*14**2)
+    assert 18*(1-delta_cap)**2 > 10
+
+
 if __name__ == "__main__":
     ctx.prec = 192
+    cuts_with_multiple_sites()
     independent_edge_errors()
     neutral_site_variance()
     centered_box()
