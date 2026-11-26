@@ -26,7 +26,7 @@ def gauge_trace():
     assert (trace_s-4*v**2-2*x**2*(w**2+(w+b)**2))/2 == 2*v*x*(2*w+b)
 
 
-def finite_thresholds(model, layers, unit, mu, g2, gy, double_log):
+def finite_thresholds(model, layers, unit, mu, g2, gy, double_log, report=True):
     # Farina, Pappadopulo, Strumia，arXiv:1303.7244v3 式 (3)、(21)、(22)。
     # 系数改记为 V 中的 +m_H² H†H，即论文 δm² 的 −1/2。
     loop2 = (16*arb.pi()**2)**2
@@ -60,8 +60,9 @@ def finite_thresholds(model, layers, unit, mu, g2, gy, double_log):
     total = scalar+fermion
     assert scalar>0 and fermion>0 and total>floor
     ref = arb("125.25")**2/2
-    print("分荷激活 Dirac",counts,"有限标量、有限费米、总额/GeV²、同尺度下界、相对电弱参数",
-          *[(v.lower().str(9),v.upper().str(9)) for v in (scalar,fermion,total,floor,total/ref)])
+    if report:
+        print("分荷激活 Dirac",counts,"有限标量、有限费米、总额/GeV²、同尺度下界、相对电弱参数",
+              *[(v.lower().str(9),v.upper().str(9)) for v in (scalar,fermion,total,floor,total/ref)])
     return total
 
 def verify():
@@ -69,6 +70,8 @@ def verify():
     model,_,_,initial,_ = chiral["source"]["mean"]["inputs"]()
     ctx.prec = 192
     read = chiral["source"]["spectral_supplier"](model)
+    portal_intervals = []
+    sensitivities = []
     for n in (11661,11934):
         rows = read(acb.zeta_zero(n).imag)
         layers = {q:chiral["ordered"]([h for h,z in rows if z==q]) for q in (0,*model["charges"])}
@@ -91,6 +94,19 @@ def verify():
         assert source>arb(".48") and ratio>arb("1e19")
         total = finite_thresholds(model,layers,unit,mu,g2,gy,generated)
         assert total>arb("1e25")
+        sensitivity = sum(m*m*(1+2*(mu/m).log()) for m in active)/loop
+        # 单独采用 V_mix=(P/2)|H|²|S|²，所有十四个活动双重态共用 P。
+        target = arb("125.25")**2/2
+        portal = total/sensitivity
+        width = target/sensitivity
+        portal_intervals.append(portal+arb(0,width.upper()))
+        sensitivities.append(sensitivity)
+        print("抵消门户与电弱半宽",
+              *[(v.lower().str(10),v.upper().str(10)) for v in (portal,width)])
+    gap = portal_intervals[0]-portal_intervals[1]
+    assert not gap.contains(0), gap
+    residual = abs(gap).lower()*min(v.lower() for v in sensitivities)/2
+    print("同一门户用于两枚时，至少一枚的质量平方残差下界 / GeV²",residual.str(11))
 
 
 if __name__=="__main__":

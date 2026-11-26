@@ -9,6 +9,24 @@ two = run_path(str(ROOT / "ch39-chiral-center-two-loop.py"))
 sm, chiral = two["sm"], two["chiral"]
 
 
+def gauge_segments(L,possible,steps):
+    b,B = sm["BETA"],sm["B"]
+    segments = []
+    last = arb(0)
+    for i,(l,w,extra,_,_) in enumerate(possible):
+        end = l.min(L)
+        dt = (end-last).max(0)
+        if dt.upper()>0:
+            segments.append((dt,b,B,steps if i==0 else max(48,steps//128)))
+        last = end
+        b = [x+y for x,y in zip(b,w)]
+        B = [[x+y for x,y in zip(r,s)] for r,s in zip(B,extra)]
+    dt = (L-last).max(0)
+    if dt.upper()>0:
+        segments.append((dt,b,B,max(48,steps//128)))
+    return segments
+
+
 def crossing_enclosure(model, initial, layers, full, denominator, seed_L, seed_alpha):
     unit = arb("2.435e18")/denominator**2
     start = (unit/model["mz"]).log()
@@ -24,20 +42,7 @@ def crossing_enclosure(model, initial, layers, full, denominator, seed_L, seed_a
         # 以确定开启的阈值建立仿射主项，可能在盒内穿越的阈值保留正部。
         definite = [r for r in table if r[0]<L]
         possible = [r for r in table if not (r[0]>L)]
-        b,B = sm["BETA"],sm["B"]
-        segments = []
-        last = arb(0)
-        for i,(l,w,extra,_,_) in enumerate(possible):
-            end = l.min(L)
-            dt = (end-last).max(0)
-            if dt.upper()>0:
-                segments.append((dt,b,B,steps if i==0 else max(48,steps//128)))
-            last = end
-            b = [x+y for x,y in zip(b,w)]
-            B = [[x+y for x,y in zip(r,s)] for r,s in zip(B,extra)]
-        dt = (L-last).max(0)
-        if dt.upper()>0:
-            segments.append((dt,b,B,max(48,steps//128)))
+        segments = gauge_segments(L,possible,steps)
         corr,_ = two["flow"]([*initial[:2],inverse],segments,sm["D"],sm["C"])
         rhs, mat = [],[]
         for i in range(3):
