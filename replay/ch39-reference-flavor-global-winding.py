@@ -124,7 +124,8 @@ def global_cover(lib, tri, weights, modes, x, y):
         angle = i * x + j * y + arb(0, box * (abs(i) + abs(j)))
         for q, w in weights.items():
             drift -= 2 * w * sum(((z ** q).imag for z, p in tri[i, j] if p)) * (q * angle).sin()
-    print('正权', *[v.str(14) for v in weights.values()], '能量、极小点方框、非驻点排除格', counts, '所选支减去镜像的能量差除以辐边亏额', drift, flush=True)
+    print('正权项数', len(weights), '能量、极小点方框、非驻点排除格', counts,
+          '所选支减去镜像的能量差除以辐边亏额', drift.str(12), flush=True)
     return drift
 
 
