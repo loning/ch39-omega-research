@@ -11,7 +11,26 @@ clock = run_path(str(root/"ch39-arithmetic-height-bandwidth.py"))
 mask = run_path(str(root/"ch39-three-mode-arithmetic-mass.py"))
 
 
-def weight_cap(times, cap, degree, targets):
+def partial_fractions(degree):
+    rates = [j*j for j in range(1,degree+1)]
+    return [(rate,prod(1-arb(other)/rate for other in rates if other != rate))
+            for rate in rates]
+
+
+def residues_of(numerator, poles):
+    return [numerator(-arb(200)/rate)/denominator for rate,denominator in poles]
+
+
+def window_polynomial(moments, x):
+    centered = arb_mat([[moments[i+j+2]-2*x*moments[i+j+1]+x*x*moments[i+j]
+                         for j in range(20)] for i in range(20)])
+    basis = arb_mat([[x**i] for i in range(20)])
+    coefficients = centered.solve(basis)
+    coefficients = coefficients/(basis.transpose()*coefficients)[0,0]
+    return arb_poly([coefficients[i,0].mid() for i in range(20)])
+
+
+def weight_cap(times, cap, degree, targets, error=0):
     moments = clock["cleared_moments"](times,degree)
     order = degree//2
     gram = arb_mat([[moments[i+j] for j in range(order+1)] for i in range(order+1)])
@@ -22,34 +41,31 @@ def weight_cap(times, cap, degree, targets):
     values = arb_mat([[q(x).sqrt()] for x in targets])
     inverse_basis = gram.solve(basis)
     coefficients = inverse_basis*(basis.transpose()*inverse_basis).solve(values)
-    power = arb_poly([coefficients[j,0]*cap**j for j in range(order+1)])
+    polynomial = arb_poly([coefficients[j,0].mid() for j in range(order+1)])
+    power = arb_poly([polynomial[j]*cap**j for j in range(order+1)])
     normalization = 1+arb("1e-9")
     difference = normalization*power**2-arb_poly([q[j]*cap**j for j in range(degree+1)])
     for i in range(degree+1):
         bernstein = sum(difference[j]*comb(i,j)/comb(degree,j) for j in range(i+1))
         assert bernstein > 0
-    return normalization*(coefficients.transpose()*gram*coefficients)[0,0]
+    numerator = normalization*polynomial**2
+    nominal = sum(numerator[i]*moments[i] for i in range(numerator.degree()+1))
+    if error:
+        return nominal+error*sum(abs(c) for c in residues_of(numerator,partial_fractions(degree)))
+    return nominal
 
 
 def required_windows(times):
     moments = clock["cleared_moments"](times,41)
-    rates = [j*j for j in range(1,42)]
-    denominators = [prod(1-arb(other)/rate for other in rates if other != rate)
-                    for rate in rates]
+    poles = partial_fractions(41)
     result = []
     for n, tol in ((1,"2e-16"), (2,"3.2e-12")):
         height = acb.zeta_zero(n).imag
         x = 200/height**2
-        centered = arb_mat([[moments[i+j+2]-2*x*moments[i+j+1]+x*x*moments[i+j]
-                             for j in range(20)] for i in range(20)])
-        basis = arb_mat([[x**i] for i in range(20)])
-        coefficients = centered.solve(basis)
-        coefficients = coefficients/(basis.transpose()*coefficients)[0,0]
-        polynomial = arb_poly([coefficients[i,0].mid() for i in range(20)])
+        polynomial = window_polynomial(moments,x)
         numerator = polynomial**2*(arb_poly([(x*arb(tol))**2])-arb_poly([-x,1])**2)
         # 分子至多四十次。用四十一个不同的极点展开后，各系数直接乘原始读数。
-        residues = [numerator(-arb(200)/rate)/denominator
-                    for rate,denominator in zip(rates,denominators,strict=True)]
+        residues = residues_of(numerator,poles)
         signal = sum(c*t for c,t in zip(residues,times[1:],strict=True))
         margin = signal/sum(abs(c) for c in residues)
         assert margin > arb(2)**-176
