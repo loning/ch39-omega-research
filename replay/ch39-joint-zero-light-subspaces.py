@@ -6,6 +6,52 @@ from runpy import run_path
 from flint import acb, arb, ctx
 
 
+def monomial_bound(p, r):
+    # 同一置换作用在行与列。先放开每行的列置换，再对整行的匹配作认证上界。
+    rows = []
+    for mat in (p, r):
+        rows.append([sorted((abs(mat[i,j]).abs_upper() for j in range(19)), reverse=True)
+                     for i in range(19)])
+    # 任意置换的各行内积至多为排序后的内积。
+    sizes = [[sum(a*b for a,b in zip(u,v,strict=True)) for v in rows[1]] for u in rows[0]]
+    # 用整数向上取整，求指派问题的对偶可行势。每个比较都可在整数上检查。
+    scale = 10**12
+    cost = [[-int((v*scale).upper().ceil().unique_fmpz()) for v in row] for row in sizes]
+    n = len(cost)
+    row_potential, col_potential = [0]*(n+1), [0]*(n+1)
+    match, previous = [0]*(n+1), [0]*(n+1)
+    for row in range(1,n+1):
+        match[0] = row
+        column = 0
+        best = [None]*(n+1)
+        used = {0}
+        while match[column]:
+            i = match[column]
+            for j in range(1,n+1):
+                if j in used:
+                    continue
+                reduced = cost[i-1][j-1]-row_potential[i]-col_potential[j]
+                if best[j] is None or reduced<best[j]:
+                    best[j],previous[j] = reduced,column
+            next_col = min((j for j in range(1,n+1) if j not in used),key=lambda j:best[j])
+            delta = best[next_col]
+            for j in range(n+1):
+                if j in used:
+                    row_potential[match[j]] += delta
+                    col_potential[j] -= delta
+                else:
+                    best[j] -= delta
+            column = next_col
+            used.add(column)
+        while column:
+            j = previous[column]
+            match[column] = match[j]
+            column = j
+    assert all(row_potential[i+1]+col_potential[j+1]<=v for i,row in enumerate(cost) for j,v in enumerate(row))
+    upper = -sum(row_potential[1:])-sum(col_potential[1:])
+    return 1-arb(upper)/(3*scale)
+
+
 def verify():
     root = Path(__file__).resolve().parent
     light = run_path(str(root / "ch39-local-yukawa-plucker.py"))
@@ -36,6 +82,13 @@ def verify():
               q, r, leakage.str(11), (variation**2).str(11), phase_bound.str(11))
         assert min(eigen)>0 and max(eigen)<1 and variation>0
         assert phase_bound > arb(".00053")
+        monomial = monomial_bound(projectors[q], projectors[r])
+        print("允许站点置换与任意相位的下界",monomial.str(11))
+        assert monomial>arb(".00042")
+        if (q,r)==(1,2):
+            assert monomial>arb(".31060011")
+        if (q,r)==(1,-4):
+            assert monomial>arb(".31097727")
         if (q,r)==(1,2):
             assert leakage>arb(".51702520") and phase_bound>arb(".38321152")
         if (q,r)==(1,-4):
