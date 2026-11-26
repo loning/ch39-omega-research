@@ -27,7 +27,7 @@ def gauge_segments(L,possible,steps):
     return segments
 
 
-def crossing_enclosure(model, initial, layers, full, denominator, seed_L, seed_alpha, *, additional_mass=None):
+def crossing_enclosure(model, initial, layers, full, denominator, seed_L, seed_alpha, *, additional_mass=None, extra_thresholds=()):
     unit = arb("2.435e18")/denominator**2
     start = (unit/model["mz"]).log()
     table = [(start+l,w,B,f,s) for l,w,B,f,s in two["thresholds"](model,layers,full)]
@@ -38,6 +38,9 @@ def crossing_enclosure(model, initial, layers, full, denominator, seed_L, seed_a
         extra = [[v*(4*casimirs[j]+(arb(2)*(0,2,3)[i]/3 if i==j else 0))
                   for j in range(3)] for i,v in enumerate(indices)]
         table.append(((additional_mass/model["mz"]).log(),model["higgs"],extra,0,1))
+    for mass, one, matrix in extra_thresholds:
+        table.append(((mass/model["mz"]).log(), one, matrix, 0, 1))
+    if additional_mass is not None or extra_thresholds:
         table.sort(key=lambda row:float(row[0]))
         assert all(a[0]<b[0] for a,b in zip(table,table[1:]))
     L = arb(seed_L)+arb(0,".014")
