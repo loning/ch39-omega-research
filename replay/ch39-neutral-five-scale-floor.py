@@ -9,12 +9,13 @@ neutral = run_path(str(Path(__file__).with_name("ch39-neutral-clock-response.py"
 model = neutral["model"]
 
 
-def envelope(bound):
+def envelope(bound, left=0):
     ctx.prec, ctx.cap = 1024, 3
     times = model["shared"]["clock"]["clock"]["times"]()
     moments = neutral["contrast"]["moments_five"](times)
     invariants, ref, poles, slopes = model["shared"]["flavor_data"]()
-    nodes, weights = neutral["fixed_ends"](moments, arb(0), bound)
+    left = arb(left)
+    nodes, weights = neutral["fixed_ends"](moments, left, bound)
     spectrum = neutral["neutral_polynomial"]()
     spectrum = spectrum*(1/spectrum[0])
     # 在三个小节点匹配单位辐边的味导数，在大端点放宽到 19g。
@@ -30,7 +31,7 @@ def envelope(bound):
     time_den = prod(1+j*j*x for j in range(1, 6))
     shell_den = spectrum*den
     shell_num = (spectrum+x*spectrum.derivative())*num
-    contact = x*prod((x-v)**2 for v in nodes[1:3])
+    contact = (x-left)*prod((x-v)**2 for v in nodes[1:3])
     cols = [divmod(x**i*shell_den, contact)[1] for i in range(5)]
     mat = arb_mat([[poly[i] for poly in cols] for i in range(5)])
     remainder = divmod(time_den*shell_num, contact)[1]
@@ -43,8 +44,8 @@ def envelope(bound):
     a0, a1, a2 = [p.derivative()(ref) for p in invariants]
     assert a0 < 0 < a1 and a2 > 0
     assert a0+73000*a1+73000**2*a2 < 0 < a0+74000*a1+74000**2*a2
-    # x=74000 y/(1+y) 将有界区间的判号化为正轴上的正系数。
-    positive = sum(v*(74000*x)**i*(1+x)**(quotient.degree()-i)
+    # x=(left+74000y)/(1+y) 将有界区间的判号化为正轴上的正系数。
+    positive = sum(v*(left+74000*x)**i*(1+x)**(quotient.degree()-i)
                    for i, v in enumerate(quotient))
     assert all(v > 0 for v in positive)
     # 由低至高除以 bound-x，避免将 11 位数的端点反复乘入区间半径。
@@ -61,27 +62,27 @@ def envelope(bound):
         pole = -1/arb(j*j)
         others = prod(1+k*k*pole for k in range(1, 6) if k != j)
         sensitivity += abs(numerator(pole)/others)
-    return margin, arb_poly(coefficients), time_den*den, contact, time_den, sensitivity
+    return margin, arb_poly(coefficients), time_den*den, contact, time_den, sensitivity, quotient, time_den*shell_den
 
 
 def verify():
     ctx.prec = 1024
     bound = arb(117387924448)
-    margin, *_, sensitivity = envelope(bound)
+    margin, _, _, _, _, sensitivity, _, _ = envelope(bound)
     assert margin+(1+sensitivity)*arb(2)**-81 < 0
     first, second = [acb.zeta_zero(n).imag for n in (8359, 12336)]
     scale = first*bound.sqrt()
     assert scale > arb("2899267716.58")
     print("尺度和导数的全域界", scale.str(20), margin.str(14))
     for cutoff, bits in ((10_000_000_000, 40), (50_000_000_000, 42), (100_000_000_000, 45)):
-        error, *_, sensitivity = envelope(arb(cutoff))
+        error, _, _, _, _, sensitivity, _, _ = envelope(arb(cutoff))
         assert error+(1+sensitivity)*arb(2)**-bits < 0
         print(bits, "位绝对误差对应尺度下界", (first*arb(cutoff).sqrt()).str(15))
     print("若不使用首枚所需尺度", (second*bound.sqrt()).str(20))
     top = arb(2903616618)
     # 取第二枚零点在尺度上端的 x 上界。第一枚才可能越出该区。
     cap = ((top/second)**2).upper()
-    deficit, high, den, contact, time_den, _ = envelope(cap)
+    deficit, high, den, contact, time_den, _, _, _ = envelope(cap)
     first_max = ((top/first)**2).upper()
     strip = (first_max-bound)/128
     rewards = []
