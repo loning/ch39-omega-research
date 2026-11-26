@@ -25,14 +25,15 @@ def light_directions(mass):
     return left, right, masses
 
 
-def trace_and_log(parts, matrices, background, scale, power=1):
+def trace_and_log(parts, matrices, background, scale, power=1, response=None):
     moment, log_moment, uniform = arb(0), arb(0), arb(0)
     for (left,right), y, colors in zip(filtered["sectors"],matrices,(3,3,1)):
         ml, mr = parts[left][1], parts[right][1]
         s = background**2
         fl, fr = [[(s/(s+m*m))**power for m in vals] for vals in (ml,mr)]
-        mass = acb_mat([[background/arb(2).sqrt()*y[i,j]*fl[i]*fr[j] for j in range(19)]
-                        for i in range(19)])
+        factor = background/arb(2).sqrt()
+        mass = acb_mat([[factor*y[i,j]*(fl[i]*fr[j] if response is None else response(ml[i],mr[j]))
+                         for j in range(19)] for i in range(19)])
         light = acb_mat([[mass[i,j] for j in range(3)] for i in range(3)])
         u,v,ms = light_directions(light)
         lh = adjoint(u)*acb_mat([[mass[i,j] for j in range(3,19)] for i in range(3)])
