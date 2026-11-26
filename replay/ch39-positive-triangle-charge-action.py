@@ -9,7 +9,7 @@ import sys
 from flint import acb, arb, arb_mat, ctx
 
 
-def triangle_coefficients(shell):
+def triangle_coefficients(shell, maximum=19):
     edges = {}
     pole = shell["soft"]["pole"]
     tuned = shell["soft"]["star"]["orbit"]
@@ -33,7 +33,7 @@ def triangle_coefficients(shell):
         (0,0,0):412, (0,0,1):21, (0,1,0):39, (0,1,1):3,
         (1,0,0):39, (1,0,1):3, (1,-1,0):12}
     coefficients = []
-    for q in range(1, 20):
+    for q in range(1, maximum+1):
         row = []
         for a, b in ((1,0), (0,1), (1,-1)):
             soft = sum((z**q for z in by_cycle[a,b,1]), acb(0))
