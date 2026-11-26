@@ -60,6 +60,34 @@ def exclude_lower_orders(lib, tri, x, y):
     print("同一相位全高度取小：前104阶逐阶严格分离的最小余量", min(margins).str(13))
 
 
+def required_high_weights(lib, tri, x, y):
+    # 比较点坐标是 1/56 的整数倍。权重与乘子写为给定十进有理数。
+    certificates = {
+        104: (
+            [(-1, -9, '0.02741545404'), (-1, -8, '0.02415973638'), (-2, -7, '0.00909936582'), (1, -3, '0.01403918796'), (2, -3, '0.01774241032'), (1, -1, '0.00028141381')],
+            ['-0.00273319126', '-0.00060654571', '-0.00152459297', '0.00010813929'],
+            '.006589'),
+        105: (
+            [(-1, -8, '0.09842425062'), (1, -3, '0.07891318210'), (1, -2, '0.14083802372'), (1, -1, '0.03966768135')],
+            ['-0.01198210623', '-0.00116425477', '-0.00624742343', '-0.00197606174'],
+            '.068674'),
+    }
+    for order, (points, multipliers, bound) in certificates.items():
+        directions = [arb(u) for u in multipliers]
+        margins = []
+        for q in range(1, 106):
+            bare = lib["coeff"](tri, q, arb(0))
+            trial = lib["energy"](q, bare, x, y)
+            margin = arb(int(q == order))
+            for a, b, w in points:
+                rival = lib["energy"](q, bare, arb(a)/56, arb(b)/56)
+                margin += arb(w)*(trial-rival)
+            margin -= sum(t*v for t, v in zip(directions, gradient_columns(lib, tri, q, x, y), strict=True))
+            margins.append(margin)
+        assert min(margins) > arb(bound)
+        print("刚达到105圈时不可缺少的阶数和归一权下界", order, min(margins).str(12))
+
+
 def verify():
     root = Path(__file__).resolve().parent
     lib = run_path(str(root / "ch39-mincut-global-winding.py"))
@@ -75,6 +103,7 @@ def verify():
     x = arb("-.01046")
     y = x-local["reference_angles"](flavor)[0]
     exclude_lower_orders(lib, tri, x, y)
+    required_high_weights(lib, tri, x, y)
     delta = arb(0).union(cap)
     for weight_rule in (fixed_weights, minimum_order_weights):
         weights = weight_rule(lib, tri, x, y)
