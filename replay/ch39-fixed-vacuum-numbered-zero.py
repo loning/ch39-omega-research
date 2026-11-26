@@ -1,4 +1,4 @@
-"""在一枚编号零点上验证固定三角作用的真空能差与味读数误差。"""
+"""在三枚编号零点上验证固定三角作用的真空能差与味读数误差。"""
 from pathlib import Path
 from runpy import run_path
 import sys
@@ -66,6 +66,14 @@ def verify(root, index):
         assert arb("-6.05203e-5") < relative[0] < arb("-6.05202e-5")
         assert arb("-3.69546e-5") < relative[1] < arb("-3.69545e-5")
         assert arb("1.145990e-7") < gap < arb("1.145991e-7")
+    elif index == 2_306_888_100_085:
+        # 同一枚编号零点的两个钟相角落入联合密度证书的正支开窗。
+        assert abs(y-target_y) < arb("9e-6")
+        assert abs(x-y-target_x+target_y) < arb("2e-7")
+        assert 0 < optimal_gap < arb("1e-7")
+        assert abs(relative[0]) < arb("2e-6")
+        assert abs(relative[1]) < arb("1.2e-6")
+        print("正支共同开窗内的高度", height.str(30))
     print("零点序号、高度、两相角",index,*(v.str(18) for v in (height,x,y)))
     print("两钟角差、相对角距差、六面坐标差",
           *[v.str(14) for v in (x-target_x,y-target_y,x-y-target_x+target_y,coordinate-reference)])
@@ -78,5 +86,5 @@ def verify(root, index):
 
 if __name__=="__main__":
     root = Path(sys.argv[1]) if len(sys.argv)>1 else Path(__file__).resolve().parent
-    for index in (40_166_104_723, 37_179_176_867):
+    for index in (40_166_104_723, 37_179_176_867, 2_306_888_100_085):
         verify(root,index)
