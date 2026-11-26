@@ -33,10 +33,15 @@ def verify():
 
     # 原作用的零相位常数也随 q 和软边变化，按每个高度重新计算全部529张三角面。
     columns = [column[:5] for column in columns]
+    consecutive = [column[:] for column in columns]
     numbered_reads(lib, shell, tri, columns)
     numbered_bound = amplification(columns)
     print("100个实际零点处完整作用读数的最大绝对误差放大上界", numbered_bound.str(13))
     assert numbered_bound < arb("2.49")
+    numbered_reads(lib, shell, tri, consecutive, consecutive_prefix=True)
+    prefix_bound = amplification(consecutive)
+    assert prefix_bound < arb("9.849")
+    print("前100个连续编号的误差放大因子", prefix_bound.str(15))
 
 
 def amplification(columns):
@@ -46,7 +51,7 @@ def amplification(columns):
     return max(sum(abs(inverse[i,j]) for j in range(5,105)).upper() for i in range(105))
 
 
-def numbered_reads(lib, shell, tri, columns):
+def numbered_reads(lib, shell, tri, columns, *, consecutive_prefix=False):
     numbers = (
         2, 3, 11, 12, 15, 17, 18, 20, 25, 27, 28, 30, 34, 37, 39,
         41, 43, 44, 45, 46, 48, 49, 50, 51, 53, 54, 59, 62, 72, 73,
@@ -56,7 +61,9 @@ def numbered_reads(lib, shell, tri, columns):
         184, 188, 189, 194, 196, 197, 200, 202, 205, 207, 212, 214, 217, 220, 221,
         223, 230, 234, 237, 240, 243, 245, 246, 248, 250,
     )
-    assert len(numbers)==len(set(numbers))==100 and min(numbers)>0 and max(numbers)==250
+    if consecutive_prefix:
+        numbers = range(1, 101)
+    assert len(numbers)==len(set(numbers))==100 and min(numbers)>0
     base = []
     for q in range(1,106):
         polynomial = [arb(0), arb(0), arb(0)]
