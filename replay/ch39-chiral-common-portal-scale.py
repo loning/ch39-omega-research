@@ -11,13 +11,13 @@ chiral = fixed["chiral"]
 two = fixed["two"]
 
 
-def portal_at(model, initial, anchor, scale):
+def portal_at(model, initial, anchor, scale, steps=4096):
     layers, inverse, table = anchor
     unit = arb("2.435e18")/724**2
     L = (scale/model["mz"]).log()
     possible = [r for r in table if r[0]<L]
     assert all(r[0]<L or r[0]>L for r in table)
-    segments = fixed["gauge_segments"](L,possible,4096)
+    segments = fixed["gauge_segments"](L,possible,steps)
     _,end = two["flow"]([*initial[:2],inverse],segments,fixed["sm"]["D"],fixed["sm"]["C"])
     g2,gy = 4*arb.pi()/end[1],12*arb.pi()/(5*end[0])
     subset = [unit*h for h in layers[3][3:] if unit*h<scale]
