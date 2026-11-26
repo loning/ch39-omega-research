@@ -11,7 +11,10 @@ ckm = run_path(str(ROOT / "ch39-shell-clock-ckm-blocks.py"))
 
 
 def singlet(n):
-    clocks = geom["phases"](acb.zeta_zero(n).imag)
+    return singlet_at(geom["phases"](acb.zeta_zero(n).imag))
+
+
+def singlet_at(clocks):
     edges = {(i,j):(d,u*clocks.get(d,1)) for i,j,d,u in geom["edges"]}
     vals = []
     for i,j,k in combinations(range(19),3):
@@ -22,6 +25,8 @@ def singlet(n):
         if 724 in lens and 804 in lens:
             assert lens[0]>=32
         if lens==[32,724,804]:
+            # 验证这六个面在两钟同转时相位精确抵消。
+            assert sum(sign for sign,(d,_) in zip((1,1,-1),links) if d in clocks)==0
             vals.append((links[0][1]*links[1][1]*links[2][1].conjugate()).real)
     assert len(vals)==6
     cosine = sum(vals)/6
@@ -59,8 +64,7 @@ def read(Y):
     return p[0,0].real.sqrt()/c13,q[1,1].real.sqrt()/c13,s13,J
 
 
-def verify():
-    ctx.prec = 192
+def reference_readout():
     masses = list(map(arb,(".0000135",".000268",".01401")))
     targets = ckm["standard_matrix"](*ckm["centers"])
     # 独立右手重定相使两个 Yukawa 的对角元实；上型固定对角。
@@ -69,8 +73,7 @@ def verify():
     first,_ = singlet(11661)
     coefficients = {(i,j):real_pair(*pair(first,i,j),target[i,j])
                     for i in range(3) for j in range(3) if i!=j}
-    for n in (11661,11934,12207):
-        s,c = singlet(n)
+    def evaluate(s):
         Y = acb_mat(3,3)
         for i in range(3):
             Y[i,i] = target[i,i].real
@@ -79,7 +82,16 @@ def verify():
                     a,b = coefficients[i,j]
                     u,v = pair(s,i,j)
                     Y[i,j] = a*u+b*v
-        vals = read(Y)
+        return read(Y)
+    return evaluate
+
+
+def verify():
+    ctx.prec = 192
+    evaluate = reference_readout()
+    for n in (11661,11934,12207):
+        s,c = singlet(n)
+        vals = evaluate(s)
         print(n,"六面余弦与三个混合角正弦、J",*[x.str(11) for x in (c,*vals)])
         if n==11661:
             assert all(a.contains(b.mid()) or a.overlaps(b) for a,b in zip(vals,ckm["centers"][:3]))
