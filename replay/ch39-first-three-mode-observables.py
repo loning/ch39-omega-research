@@ -27,6 +27,10 @@ def observables(n):
     center = sum(levels[0])/18
     layers = {q:joint["chiral"]["ordered"]([v*abs(v-center) for v in eig])
               for q,eig in levels.items()}
+    return layer_observables(model,initial,layers)
+
+
+def layer_observables(model,initial,layers):
     assert all(layers[q][2]<9<layers[q][3] for q in model["charges"])
     vacuum = joint["vacuum"]
     mass = 32*arb("2.435e18")/724**2*layers[2][15]

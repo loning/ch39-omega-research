@@ -26,9 +26,10 @@ def boundary_sites():
     return boundary
 
 
-def laplacian(charge, height):
+def laplacian(charge, height, *, phases=None):
     matrix = acb_mat(19, 19)
-    phases = geo["phases"](height)
+    if phases is None:
+        phases = geo["phases"](height)
     pole, tuned = soft["pole"], soft["star"]["orbit"]
     delta = arb(23)/25*arb(2)**-20/(height**2 + soft["point"]["study"]["offset"])
     for i, j, d, z in geo["edges"]:
