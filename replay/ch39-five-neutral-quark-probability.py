@@ -9,6 +9,8 @@ replay = run_path(str(root / "ch39-seven-actual-neutral-times.py"))
 cp = run_path(str(root / "ch39-cp-ensemble-test.py"))
 flavor = cp["flavor"]
 model = replay["neutral"]["model"]
+eight_indices = (8359, 143921293989490, 295873368963, 142270715263,
+                 13219432687559, 295668865161, 295873014395, 142269606336)
 
 
 def columns_at(scale, indices):
@@ -55,9 +57,7 @@ def compare(records, weights, times, invariants, ref, prob0, cp0):
 
 
 def verify():
-    indices = (8359, 143921293989490, 295873368963, 142270715263,
-               13219432687559, 295668865161, 295873014395, 142269606336)
-    records, times, invariants, ref, probabilities, j0 = columns_at(2_903_600_000, indices)
+    records, times, invariants, ref, probabilities, j0 = columns_at(2_903_600_000, eight_indices)
     weights = solve(records, times)
     assert all(w > 0 for w in weights)
     ub, cb, cp_loss = compare(records, weights, times, invariants, ref, probabilities, j0)
