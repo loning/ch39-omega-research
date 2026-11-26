@@ -58,10 +58,6 @@ def solve(model, initial, layers, full, denominator, seed_L, seed_alpha):
     mu = model["mz"]*L.exp()
     print("十九标量" if full else "十六标量",denominator,"交点 / GeV 与反推强耦合",
           *[(v.lower().str(10),v.upper().str(10)) for v in (mu,alpha)])
-    if not full and denominator==724:
-        assert arb(".1183")<alpha<arb(".1185")
-    else:
-        assert alpha<arb(".117") or alpha>arb(".119")
     return alpha
 
 
@@ -79,7 +75,11 @@ def verify():
         assert sum(k==d for _,_,k,_ in geometry["edges"])==6
     for full,n,L,alpha in ((True,724,"28.987",".1225"),(True,804,"28.703",".11655"),
                            (False,724,"29.040",".11838"),(False,804,"28.763",".11301")):
-        solve(model,initial,layers,full,n,L,alpha)
+        out = solve(model,initial,layers,full,n,L,alpha)
+        if not full and n==724:
+            assert arb(".1183")<out<arb(".1185")
+        else:
+            assert out<arb(".117") or out>arb(".119")
 
 
 if __name__=="__main__":
