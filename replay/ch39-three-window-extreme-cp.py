@@ -56,7 +56,7 @@ def angular_bound():
         pending.extend((2*n, 2*i+a, 2*j+b) for a in (0, 1) for b in (0, 1))
 
 
-def open_windows():
+def open_windows(centers=((".15674163", "-.05916834"), (".072", ".072"))):
     physical = sign["physical"]
     model, initial = physical["model_inputs"]()
     chiral = physical["joint"]["chiral"]
@@ -64,7 +64,7 @@ def open_windows():
     ctx.prec = 224
     radius = arb(2)**-42
     coordinates = []
-    for a, b in ((".15674163", "-.05916834"), (".072", ".072")):
+    for a, b in centers:
         angles = {724: arb(a), 804: arb(b)}
         phases = {d: acb(0, t).exp() for d, t in angles.items()}
         rows = supply(arb(10)**13, clocks=phases)
