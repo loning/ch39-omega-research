@@ -72,6 +72,14 @@ def verify():
     print("全部非负谱门户的锐矩比、目标比、二谱最大残差下界/GeV²",
           best.str(12),(c/a).str(12),error.lower().str(12))
 
+    # 允许有符号系数时，直接检查所得多项式对每个实参数的值。
+    matrix = arb_mat([row[:3] for row in low_moments])
+    constant,linear,quadratic = matrix.solve(arb_mat([[v] for v in targets])).entries()
+    minimum = constant-linear**2/(4*quadratic)
+    assert quadratic>0 and minimum>arb(".006") and linear<0
+    assert max(constant.upper(),(constant+linear+quadratic).upper())<arb(".04")
+    print("二次门户的系数与全球最小值",*[v.str(8) for v in (constant,linear,quadratic,minimum)])
+
 
 if __name__=="__main__":
     verify()
