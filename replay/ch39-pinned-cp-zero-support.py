@@ -8,11 +8,16 @@ previous = run_path(str(Path(__file__).with_name("ch39-eleven-neutral-cp-range.p
 joint = previous["joint"]
 extra = (142270888235, 142269938072, 142271215525, 142270381883,
          295874150547, 295872524995, 295874398386, 295872666901)
-indices = (*previous["indices"], *extra)
+first_list = (*previous["indices"], *extra)
+high_indices = (143921294494500, 143921293719910, 143921298450585, 143921293614265)
+indices = (*first_list, *high_indices)
 lower_support = (8359, 143921293989490, 295874398386, 142270715263, 13219432687559,
                  295668865161, 142270888235, 142269606336, 142268163595, 295873886415)
 upper_support = (8359, 143921293989490, 295872666901, 142271930613, 13219432687559,
                  295668865161, 295873014395, 142269606336, 142268163595, 295872524995)
+
+high_upper_support = (8359, 295874398386, 142271930613, 142270381883, 13219432687559,
+                      295668865161, 295872666901, 295872524995, 142268163595, 143921293614265)
 
 
 def endpoint(indices, rows, target, columns, support, direction, invariants, ref, current):
@@ -48,12 +53,15 @@ def verify():
     rows, times, invariants, ref, probabilities, current = joint["columns_at"](2_903_600_000, indices)
     ctx.prec = 640
     columns, target = problem(rows, times, probabilities)
-    lo, hi = [endpoint(indices, rows, target, columns, support, sign, invariants, ref, current)
-              for support, sign in ((lower_support, -1), (upper_support, 1))]
+    lo = endpoint(indices, rows, target, columns, lower_support, -1, invariants, ref, current)
+    old_size = len(first_list)
+    old_hi = endpoint(first_list, rows[:old_size], target, columns[:old_size], upper_support,
+                      1, invariants, ref, current)
+    hi = endpoint(indices, rows, target, columns, high_upper_support, 1, invariants, ref, current)
     assert arb(".05570022060867") < lo < arb(".05570022060869")
-    assert arb(".07015185002496") < hi < arb(".07015185002499")
-    print("十九枚零点在六项时间、味驻点及两个平均跃迁概率下的 CP 亏额两端",
-          lo.str(17), hi.str(17))
+    assert arb(".07015185002496") < old_hi < arb(".07015185002499")
+    assert arb(".093435233874") < hi < arb(".093435233877")
+    print("十九枚、二十三枚共用的下端和各自的上端", lo.str(17), old_hi.str(17), hi.str(15))
 
 
 if __name__ == "__main__":
