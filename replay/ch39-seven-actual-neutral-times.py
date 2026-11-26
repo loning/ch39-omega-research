@@ -12,7 +12,7 @@ indices = (8359, 143921293989490, 3608485756267, 1742020063894,
 scale = 32_000_000_000
 
 
-def verify():
+def verify_at(scale, indices):
     params, initial = physical["model_inputs"]()
     chiral = physical["joint"]["chiral"]
     supply_spectrum = chiral["source"]["spectral_supplier"](params)
@@ -59,9 +59,15 @@ def verify():
     neutral["verify_maximum"](nodes, [v/normalizer for v in flavor], invariants, reference)
     sixth = sum(w*model["time_kernel"](x, 6) for w, x in zip(weights.entries(), nodes, strict=True))
     difference = sixth - times[6]
-    assert arb("1.33072788423e-8") < difference < arb("1.33072788426e-8")
     print("算术概率", *[w.str(12) for w in weights.entries()])
     print("第六项与参考读数之差", difference.str(15))
+
+    return difference
+
+
+def verify():
+    difference = verify_at(scale, indices)
+    assert arb("1.33072788423e-8") < difference < arb("1.33072788426e-8")
 
 
 if __name__ == "__main__":
