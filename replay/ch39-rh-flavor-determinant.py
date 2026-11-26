@@ -8,6 +8,10 @@ from flint import acb, arb, arb_series, ctx
 invariant=run_path(str(Path(__file__).with_name("ch39-flavor-invariants.py")))
 
 
+def scale_interval():
+    return arb("100339.66931659359210804260816"),arb("100339.66931659359210804260818")
+
+
 def log_xi(x):
     """返回 log ξ(1/2+x) 的一、二阶导数。"""
     s=arb_series([x+arb(1)/2,1],prec=3)
@@ -77,7 +81,7 @@ def verify():
             log=(s/2).lgamma()+s.log()+(s-1).log()+s.zeta().log()
             result+=d*(2*y*log[2] if derivative else log[1]-arb.pi().log()/2)
         return result
-    lower,upper=arb("100339.66931659"),arb("100339.66931660")
+    lower,upper=scale_interval()
     assert fine_score(lower)<0<fine_score(upper)
     # 此尺度上每个零点行列式作为 c 的函数均严格凹。
     min_t=(gamma/upper)**2
