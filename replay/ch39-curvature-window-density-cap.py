@@ -40,6 +40,51 @@ def cover():
     return arb(inside+uncertain)/4**limit
 
 
+def restrict_corners():
+    # 先将偶数荷的环面按 π 折叠，再把每一只钟限制在离 0 至多 π/16 的区间。
+    pi = arb.pi()
+
+    @cache
+    def center(depth, index):
+        return acb(0, pi*(2*index+1)/2**(depth+1)).exp()
+
+    @cache
+    def band_counts(depth):
+        error = 4*pi/2**depth
+        return (window["supplier"](2, arb("18.94085")-error),
+                window["supplier"](2, arb("18.94416")+error))
+
+    pending = [(3, i, j) for i in range(8) for j in range(8)]
+    accepted_area = arb(0)
+    excluded_area = arb(0)
+    while pending:
+        depth, i, j = pending.pop()
+        scale = 2**depth
+        if all(16*min(s+1, scale-s) <= scale for s in (i, j)):
+            accepted_area += arb(1)/scale**2
+            continue
+        clocks = {724: center(depth, i), 804: center(depth, j)}
+        low, high = band_counts(depth)
+        if low(clocks) >= 15 or high(clocks) < 15:
+            excluded_area += arb(1)/scale**2
+            continue
+        assert depth < 11
+        pending.extend((depth+1, 2*i+a, 2*j+b) for a in range(2) for b in range(2))
+    assert accepted_area == arb(1)/64 and accepted_area + excluded_area == 1
+
+    # 两钟在 π 附近时，荷一至少有四个轻模，按谱分界两侧的严格惯性计数。
+    depth = 6
+    error = 2*pi/2**depth + arb("3e-8")
+    lower = (15-arb(189).sqrt())/2
+    upper = (15+arb(261).sqrt())/2
+    cuts = [window["supplier"](1, cut) for cut in (lower-error, upper-error, 15-lower+error)]
+    for i in range(60, 68):
+        for j in range(60, 68):
+            clocks = {724: center(depth, i), 804: center(depth, j)}
+            low_count, upper_count, middle_count = [count(clocks) for count in cuts]
+            assert 1 + low_count + upper_count - middle_count >= 4
+
+
 def verify():
     ctx.prec = 144
     unit = 32*arb("2.435e18")/724**2
@@ -55,6 +100,9 @@ def verify():
     assert lower > arb("18.94085") and upper < arb("18.94416")
     cap = cover()
     assert cap < arb(".00091650")
+    restrict_corners()
+    cap *= arb(3)/4
+    assert cap < arb(".000687372")
     print("三代与曲率的必要本征值带、全部合格正零点的相对上密度界",
           lower.str(12),upper.str(12),cap.str(13))
 
