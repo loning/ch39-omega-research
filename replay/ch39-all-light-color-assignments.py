@@ -85,7 +85,7 @@ def cover(model,initial,bands):
     assert candidates==[(3,15,20)]
 
 
-def check_tangencies():
+def check_tangencies(assignments):
     sm = gauge["sm"]
     r = Fraction(1,1000)
     g1,_,g3 = sm["hull_inputs"](".467453 .63811 1.0583",r)
@@ -98,8 +98,6 @@ def check_tangencies():
     reps = {"1":[(12,0,0)],"3":[(6,arb(4)/3,arb(1)/9),(6,0,0)],
             "8":[(8,3,0),(4,0,0)],"6":[(12,arb(10)/3,arb(1)/9)]}
     trace = sum(n*u for n,u in zip([12]*6+[4]*3,p))
-    assignments = set(permutations(("3","8","8","8","6")))
-    assert len(assignments)==20
     for others in assignments:
         blocks = []
         fields = [*others[:2],"6",*others[2:]]
@@ -120,7 +118,9 @@ def verify():
     chiral=gauge["chiral"]
     model,_,_,initial,_=chiral["source"]["mean"]["inputs"]()
     ctx.prec=224
-    check_tangencies()
+    assignments = set(permutations(("3","8","8","8","6")))
+    assert len(assignments)==20
+    check_tangencies(assignments)
     read=chiral["source"]["spectral_supplier"](model)
     for n in (22027,28325):
         src=read(acb.zeta_zero(n).imag)
