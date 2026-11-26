@@ -64,7 +64,7 @@ def read(Y):
     return p[0,0].real.sqrt()/c13,q[1,1].real.sqrt()/c13,s13,J
 
 
-def reference_readout():
+def reference_matrix():
     masses = list(map(arb,(".0000135",".000268",".01401")))
     targets = ckm["standard_matrix"](*ckm["centers"])
     # 独立右手重定相使两个 Yukawa 的对角元实；上型固定对角。
@@ -82,8 +82,13 @@ def reference_readout():
                     a,b = coefficients[i,j]
                     u,v = pair(s,i,j)
                     Y[i,j] = a*u+b*v
-        return read(Y)
+        return Y
     return evaluate
+
+
+def reference_readout():
+    matrix = reference_matrix()
+    return lambda s: read(matrix(s))
 
 
 def verify():
