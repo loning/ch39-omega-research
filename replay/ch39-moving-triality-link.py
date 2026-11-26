@@ -110,6 +110,19 @@ def triangle_phases():
     cs_mod = abs(c12*c23-s12*s23*s13*phase)
     coefficient = sum(a*b*c for a,b,c in combinations((s12*c13,s23*c13,s13,cs_mod),3))
     assert jarlskog > 37*max(best.values())*coefficient
+    # 同一行、同一列各自只有一份虚部平方范数预算。
+    eta = 41*max(best.values())
+    quartet_angle = (phase*(c12*c23-s12*s23*s13*phase).conjugate()).arg()
+    assert arb("1.13") < quartet_angle < arb.pi()/2
+    caps = []
+    for j in range(128):
+        lo,hi = arb(j)/128,arb(j+1)/128
+        rest = eta*(1-lo**2).sqrt()
+        caps.append((eta*hi/s13).asin()+(rest/(s12*c13)).asin()
+                    +(rest/(s23*c13)).asin()+(eta/cs_mod).asin())
+    limit = max(v.upper() for v in caps)
+    assert limit < arb("1.13")
+    print("41 圈的重定相不变量相角上界和参考相角",limit.str(10),quartet_angle.str(10))
     angles = sorted(best_phases[-4],key=float)
     width = angles[-1]-angles[0]
     assert winners[-4] == (11934,12207,28325)
@@ -125,7 +138,7 @@ def triangle_phases():
     turn = rotation(-left)*block*rotation(-right)
     reconstructed = rotation(a)*turn**21*rotation(b)
     assert all(abs(x)<arb("1e-35") for x in (target-reconstructed).entries())
-    print("参考 CKM 相位的必要圈数至少 38；用同一三角正反各 21 次重建。单次中间实转角",beta.str(10))
+    print("参考 CKM 的最小圈数为 42，正反各 21 次。单次中间实转角",beta.str(10))
 
 
 def rotation(theta):
