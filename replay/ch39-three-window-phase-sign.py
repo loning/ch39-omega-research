@@ -65,7 +65,7 @@ def schur_coefficients(charge, level):
     return transform * samples * transform.transpose() / 49
 
 
-def certify_no_crossing(coefficients, charge, corner):
+def determinant_sign_on_cell(coefficients, charge, corner):
     radius = arb.pi()*charge/16
     second = sum((a*a+b*b)*abs(coefficients[i, j])
                  for i, a in enumerate(frequencies) for j, b in enumerate(frequencies))
@@ -82,12 +82,20 @@ def certify_no_crossing(coefficients, charge, corner):
         column = acb_mat([powers(n, j, 1)]).transpose()
         return (row * coefficients * column)[0, 0].real
 
+    def cell(n, i, j):
+        values = [value(n, i+a, j+b) for a in (0, 1) for b in (0, 1)]
+        error = (2*radius/n)**2 * second/8
+        return all(v > error for v in values) or all(v < -error for v in values)
+
+    return cell
+
+
+def certify_no_crossing(coefficients, charge, corner):
+    definite = determinant_sign_on_cell(coefficients, charge, corner)
     pending = [(1, 0, 0)]
     while pending:
         n, i, j = pending.pop()
-        values = [value(n, i+a, j+b) for a in (0, 1) for b in (0, 1)]
-        error = (2*radius/n)**2 * second/8
-        if all(v > error for v in values) or all(v < -error for v in values):
+        if definite(n, i, j):
             continue
         assert n < 16
         pending.extend((2*n, 2*i+a, 2*j+b) for a in (0, 1) for b in (0, 1))

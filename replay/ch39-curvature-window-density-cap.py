@@ -85,8 +85,7 @@ def restrict_corners():
             assert 1 + low_count + upper_count - middle_count >= 4
 
 
-def verify():
-    ctx.prec = 144
+def eigen_band():
     unit = 32*arb("2.435e18")/724**2
     k = (9*arb(3).log()-12*arb(2).log())/2
     ratio = arb("246.22")**2/(unit*arb("1.22089e19"))
@@ -97,7 +96,13 @@ def verify():
     center_lo = 15-delta/3
     lower = (center_lo+(center_lo**2+4*mass_lo).sqrt())/2
     upper = (15+(225+4*mass_hi).sqrt())/2+4*delta
-    assert lower > arb("18.94085") and upper < arb("18.94416")
+    return lower, upper
+
+
+def verify():
+    ctx.prec = 144
+    lower, upper = eigen_band()
+    assert lower > arb("18.94085") and upper < arb("18.944146")
     cap = cover()
     assert cap < arb(".00091650")
     restrict_corners()
