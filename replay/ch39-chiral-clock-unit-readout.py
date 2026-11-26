@@ -27,7 +27,7 @@ def gauge_segments(L,possible,steps):
     return segments
 
 
-def crossing_enclosure(model, initial, layers, full, denominator, seed_L, seed_alpha, *, additional_mass=None, extra_thresholds=()):
+def crossing_enclosure(model, initial, layers, full, denominator, seed_L, seed_alpha, *, additional_mass=None, extra_thresholds=(), recenter=False):
     unit = arb("2.435e18")/denominator**2
     start = (unit/model["mz"]).log()
     table = [(start+l,w,B,f,s) for l,w,B,f,s in two["thresholds"](model,layers,full)]
@@ -48,7 +48,6 @@ def crossing_enclosure(model, initial, layers, full, denominator, seed_L, seed_a
     pi = arb.pi()
     assert all(0<l for l,*_ in table)
     even = [*layers[0],*(h for q in (2,4,6) for h in layers[q][3:])]
-    assert all(32*h*unit>model["mz"]*L.exp() for h in even)
 
     def image(L,inverse,steps):
         # 以确定开启的阈值建立仿射主项，可能在盒内穿越的阈值保留正部。
@@ -56,7 +55,7 @@ def crossing_enclosure(model, initial, layers, full, denominator, seed_L, seed_a
         possible = [r for r in table if not (r[0]>L)]
         segments = gauge_segments(L,possible,steps)
         corr,_ = two["flow"]([*initial[:2],inverse],segments,sm["D"],sm["C"],
-                             min_inverse=7 if additional_mass is not None else 8)
+                             min_inverse=7 if additional_mass is not None or recenter else 8)
         rhs, mat = [],[]
         for i in range(3):
             b0 = sm["BETA"][i]+sum(r[1][i] for r in definite)
@@ -66,6 +65,13 @@ def crossing_enclosure(model, initial, layers, full, denominator, seed_L, seed_a
             rhs.append([val])
             mat.append([b0,2*pi,-2*pi*int(i==2)])
         return arb_mat(mat).solve(arb_mat(rhs)).entries()
+    if recenter:
+        # 中点迭代只定位下一次区间检验的初盒。
+        for _ in range(3):
+            guess = image(L.mid(),inverse.mid(),1024)
+            L = guess[0].mid()+arb(0,".014")
+            inverse = guess[2].mid()+arb(0,".04")
+    assert all(32*h*unit>model["mz"]*L.exp() for h in even)
     result = image(L,inverse,8192)
     assert L.contains_interior(result[0]) and inverse.contains_interior(result[2]),(result,L,inverse)
     for steps in (8192,16384,32768):
