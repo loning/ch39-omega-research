@@ -42,18 +42,48 @@ def certified_rule(support, coordinates, times, moments, denominator):
     result = measure(interpolant, moments)
     direct = sum(w*(1-v)/(1+48*v) for w, v in zip(probabilities, nodes, strict=True))
     assert direct.overlaps(result)
-    return result
+    return result, probabilities
+
+
+def width_peak(coordinates, endpoint_rules):
+    # 对 s=k²>36，插值余项的系数
+    # -s*∏(s-j²)/∏(1+(s-1)v) 严格负，两个端点的支撑与权均不随 s 改变。
+    delta = {}
+    for sign, support, weights in endpoint_rules:
+        for n, w in zip(support, weights, strict=True):
+            delta[n] = delta.get(n, 0)+sign*w
+    # z=s-36。以两支撑之并上的因子作公分母，该分母在 z≥0 严格正。
+    shift = arb_poly([35, 1])
+    factors = {n: 1+shift*coordinates[n] for n in delta}
+    denominator = prod(factors.values())
+    numerator = sum(w*(1-coordinates[n])*prod(f for i, f in factors.items() if i != n)
+                    for n, w in delta.items())
+    derivative = numerator.derivative()*denominator - numerator*denominator.derivative()
+    assert derivative.degree() == 20
+    assert all(derivative[i] > 0 for i in range(18))
+    assert all(derivative[i] < 0 for i in range(18, 21))
+    # 笛卡尔符号法则只允许一个正根，以下两端的异号保证它确实存在。
+    a, b = arb("3489.58587069974"), arb("3489.58587069975")
+    assert derivative(a*a-36) > 0 > derivative(b*b-36)
+    adjacent = [numerator(k*k-36)/denominator(k*k-36) for k in (3489, 3490)]
+    assert adjacent[0] < adjacent[1]
+    assert arb("8.093669181490403e-6") < adjacent[1] < arb("8.093669181490406e-6")
+    print("二十三枚上的最大区间宽度，其整数阶数为 3490", adjacent[1].str(17))
 
 
 def endpoints(coordinates, times, moments, denominator):
     results = []
+    rules = []
     for support, direction in ((lower_support, 1), (upper_support, -1)):
         nodes = [coordinates[n] for n in support]
         for n, v in coordinates.items():
             if n not in support:
                 # q<0。所有其余列都满足严格对偶不等式，故该端点的权惟一。
                 assert direction*prod(z-v for z in nodes) > 0
-        results.append(certified_rule(support, coordinates, times, moments, denominator))
+        result, probabilities = certified_rule(support, coordinates, times, moments, denominator)
+        results.append(result)
+        rules.append((-direction, support, probabilities))
+    width_peak(coordinates, rules)
     lower, upper = results
     assert arb(".93341795164287272944314") < lower < arb(".93341795164287272944316")
     assert arb(".93341795164287312935473") < upper < arb(".93341795164287312935475")
@@ -73,7 +103,7 @@ spectrum_lower = (8359, 107140825305636, 143921298450585, 295870024485,
 def spectrum_bounds(coordinates, times, moments, denominator, extrapolation):
     coordinates = {**coordinates, None: arb(0)}
     feasible_low, limiting_high = [
-        certified_rule(support, coordinates, times, moments, denominator)
+        certified_rule(support, coordinates, times, moments, denominator)[0]
         for support in (spectrum_lower, spectrum_upper)
     ]
     # 第 8359 枚是第一枚共同候选，故所有 y 位于这两个 Radau 端点之间。
