@@ -16,7 +16,7 @@ def gradient(x, lambdas, slopes):
     return sum(s*x/(1 + z*x) for z, s in zip(lambdas, slopes, strict=True))
 
 
-def upper_score(limit, times, lambdas, slopes):
+def upper_polynomial(limit, times, lambdas, slopes):
     # 在 x 的原坐标计算 dμ/Q 的矩。构造含右端点的三点求积。
     scaled = shared["clock"]["clock"]["cleared_moments"](times, 4)
     moments = [v/200**i for i, v in enumerate(scaled)]
@@ -48,7 +48,7 @@ def upper_score(limit, times, lambdas, slopes):
         for j in range(1, 5):
             w *= 1 + j*j*x
         score += w*gradient(x, lambdas, slopes)
-    return score
+    return score, (left, middle), coefficients
 
 
 def discrete_score(scale, times, heights, lambdas, slopes):
@@ -67,7 +67,8 @@ def verify():
     ctx.prec = 768
     lower = arb("41312660.31094738")
     limit = (lower/heights[0])**2
-    assert upper_score(limit, times, lambdas, slopes) < 0
+    upper, _, _ = upper_polynomial(limit, times, lambdas, slopes)
+    assert upper < 0
 
     lo, hi = arb("41312675.40981774807"), arb("41312675.40981774808")
     assert discrete_score(lo, times, heights, lambdas, slopes)[0] < 0
