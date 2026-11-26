@@ -9,7 +9,7 @@ two = run_path(str(ROOT / "ch39-chiral-center-two-loop.py"))
 sm, chiral = two["sm"], two["chiral"]
 
 
-def solve(model, initial, layers, full, denominator, seed_L, seed_alpha):
+def crossing_enclosure(model, initial, layers, full, denominator, seed_L, seed_alpha):
     unit = arb("2.435e18")/denominator**2
     start = (unit/model["mz"]).log()
     table = [(start+l,w,B,f,s) for l,w,B,f,s in two["thresholds"](model,layers,full)]
@@ -58,7 +58,11 @@ def solve(model, initial, layers, full, denominator, seed_L, seed_alpha):
     mu = model["mz"]*L.exp()
     print("十九标量" if full else "十六标量",denominator,"交点 / GeV 与反推强耦合",
           *[(v.lower().str(10),v.upper().str(10)) for v in (mu,alpha)])
-    return alpha
+    return mu, result[1], alpha
+
+
+def solve(model, initial, layers, full, denominator, seed_L, seed_alpha):
+    return crossing_enclosure(model,initial,layers,full,denominator,seed_L,seed_alpha)[2]
 
 
 def verify():
