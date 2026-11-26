@@ -44,7 +44,7 @@ def matter():
 def dot(a,b):
     return sum(x*y for x,y in zip(a,b))
 
-def integrate_segments(initial, segments, D, C, record=None):
+def integrate_segments(initial, segments, D, C, record=None, *, min_inverse=8):
     pi = arb.pi()
     correction = [arb(0) for _ in range(3)]
     logs = [arb(x).log() for x in (".98",".016",".010")]
@@ -57,7 +57,7 @@ def integrate_segments(initial, segments, D, C, record=None):
             # 常数宽度包络只用于证明单步内解存在并给导数定界。
             xpad, ypad = arb(".4")*dt.upper(), arb(".12")*dt.upper()
             inverse = [a-s*interval/(2*pi)+v+arb(0,xpad) for a,s,v in zip(baseline,coeff,correction)]
-            assert all(v>8 for v in inverse)
+            assert min_inverse>0 and all(v>min_inverse for v in inverse)
             gauge = [1/v for v in inverse]
             y = [(2*(v+arb(0,ypad))).exp() for v in logs]
             if record is not None:

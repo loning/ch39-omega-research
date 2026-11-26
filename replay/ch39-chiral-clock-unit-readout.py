@@ -17,7 +17,7 @@ def gauge_segments(L,possible,steps):
         end = l.min(L)
         dt = (end-last).max(0)
         if dt.upper()>0:
-            segments.append((dt,b,B,steps if i==0 else max(48,steps//128)))
+            segments.append((dt,b,B,steps if i==0 or dt.upper()>2 else max(48,steps//128)))
         last = end
         b = [x+y for x,y in zip(b,w)]
         B = [[x+y for x,y in zip(r,s)] for r,s in zip(B,extra)]
@@ -27,10 +27,19 @@ def gauge_segments(L,possible,steps):
     return segments
 
 
-def crossing_enclosure(model, initial, layers, full, denominator, seed_L, seed_alpha):
+def crossing_enclosure(model, initial, layers, full, denominator, seed_L, seed_alpha, *, additional_mass=None):
     unit = arb("2.435e18")/denominator**2
     start = (unit/model["mz"]).log()
     table = [(start+l,w,B,f,s) for l,w,B,f,s in two["thresholds"](model,layers,full)]
+    if additional_mass is not None:
+        # 另一复弱双重态只计规范系数，额外 Yukawa 取零。
+        indices = [arb(3)/10,arb(1)/2,arb(0)]
+        casimirs = [arb(3)/20,arb(3)/4,arb(0)]
+        extra = [[v*(4*casimirs[j]+(arb(2)*(0,2,3)[i]/3 if i==j else 0))
+                  for j in range(3)] for i,v in enumerate(indices)]
+        table.append(((additional_mass/model["mz"]).log(),model["higgs"],extra,0,1))
+        table.sort(key=lambda row:float(row[0]))
+        assert all(a[0]<b[0] for a,b in zip(table,table[1:]))
     L = arb(seed_L)+arb(0,".014")
     inverse = 1/arb(seed_alpha)+arb(0,".04")
     pi = arb.pi()
@@ -43,7 +52,8 @@ def crossing_enclosure(model, initial, layers, full, denominator, seed_L, seed_a
         definite = [r for r in table if r[0]<L]
         possible = [r for r in table if not (r[0]>L)]
         segments = gauge_segments(L,possible,steps)
-        corr,_ = two["flow"]([*initial[:2],inverse],segments,sm["D"],sm["C"])
+        corr,_ = two["flow"]([*initial[:2],inverse],segments,sm["D"],sm["C"],
+                             min_inverse=7 if additional_mass is not None else 8)
         rhs, mat = [],[]
         for i in range(3):
             b0 = sm["BETA"][i]+sum(r[1][i] for r in definite)
